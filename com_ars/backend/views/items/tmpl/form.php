@@ -113,6 +113,12 @@ $filteringModel = JModel::getInstance('Filtering','ArsModel');
 			<label for="groups"><?php echo JText::_('LBL_CATEGORIES_GROUPS'); ?></label>
 			<?php echo ArsHelperSelect::ambragroups($this->item->groups, 'groups') ?>
 		</div>
+		<?php elseif(defined('PAYPLANS_LOADED')): ?>
+		<div class="editform-row editform-row-noheight">
+			<label for="groups"><?php echo JText::_('PayPlans Plans'); ?></label>
+			<?php //echo ArsHelperSelect::ambragroups($this->item->groups, 'groups') ?>
+			<?php echo PayplansHtml::_('plans.edit', 'groups', $this->item->groups);?>
+		</div>
 		<?php endif; ?>
 		<div class="editform-row">
 			<label for="updatestream"><?php echo JText::_('LBL_ITEMS_UPDATESTREAM'); ?></label>

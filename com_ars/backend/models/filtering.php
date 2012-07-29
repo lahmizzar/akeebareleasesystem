@@ -81,6 +81,9 @@ class ArsModelFiltering extends JModel
 			} elseif( self::hasAMBRA() ) {
 				self::$hasSubsExtension = true;
 				self::$subsExtensionType = 'ambra';
+			} elseif( defined('PAYPLANS_LOADED') ) {
+				self::$hasSubsExtension = true;
+				self::$subsExtensionType = 'payplans';
 			} else {
 				self::$hasSubsExtension = false;
 				self::$subsExtensionType = null;
@@ -114,7 +117,11 @@ class ArsModelFiltering extends JModel
 			case 'akeeba':
 				return self::getAkeebaGroups();
 				break;
-				
+
+			case 'payplans':
+				return PayplansApi::getPlans();
+				break;
+	
 			default:
 				return array();
 		}
@@ -216,7 +223,11 @@ class ArsModelFiltering extends JModel
 			case 'ambra':
 				return self::getAMBRAUserGroups($user_id);
 				break;
-				
+
+			case 'payplans':
+				$status = PayplansStatus::SUBSCRIPTION_ACTIVE;
+				return PayplansApi::getUser($user_id)->getSubscriptions($status);
+				break;	
 			default:
 				return array();
 				break;
