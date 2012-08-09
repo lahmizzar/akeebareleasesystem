@@ -3,56 +3,41 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
 // Protect from unauthorized access
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-jimport('joomla.application.component.controller');
+// Load the Amazon S3 helper
+require_once JPATH_ADMINISTRATOR.'/components/com_ars/helpers/amazons3.php';
 
-class ArsControllerUpload extends JController
+class ArsControllerUpload extends FOFController
 {
-
-	/**
-	 * Displays the selection box for a category
-	 * @param bool $cachable Is this view cacheable?
-	 */
-	function  display($cachable = false) {
-		parent::display($cachable);
-	}
-
 	/**
 	 * Displays the files inside a category and allows uploading new files
 	 */
 	function category()
 	{
-		if(version_compare(JVERSION, '1.6.0', 'ge')) {
-			$user = JFactory::getUser();
-			if (!$user->authorise('core.manage', 'com_ars')) {
-				return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
-			}
+		$user = JFactory::getUser();
+		if (!$user->authorise('core.manage', 'com_ars')) {
+			return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
 		
-		if(!JRequest::getVar(JUtility::getToken(), false))
+		if(!FOFInput::getVar(JFactory::getSession()->getToken(), false, $this->input))
 		{
-			JError::raiseError('403', JText::_('Access Denied'));
+			JError::raiseError('403', JText::_('JGLOBAL_AUTH_ACCESS_DENIED'));
 		}
 
-		$catid = JRequest::getInt('id',0);
-		$folder = JRequest::getString('folder','');
-		$model = $this->getModel('Upload','ArsModel');
-		$model->setState('category',(int)$catid);
-		$model->setState('folder', $folder);
+		$catid	= FOFInput::getInt('id', 0, $this->input);
+		$folder	= FOFInput::getString('folder', '', $this->input);
+		
+		$this->getThisModel()
+			->category((int)$catid)
+			->folder($folder);
 
-		$document = JFactory::getDocument();
-		$viewType	= $document->getType();
-		$viewLayout	= JRequest::getCmd( 'layout', 'default' );
-
-		$view = $this->getView('Upload','html','ArsView');
-		$view->setModel($model, true);
-		$view->setLayout($viewLayout);
-		$view->display();
+		$this->layout = FOFInput::getCmd('layout', 'default');
+		
+		$this->display();
 	}
 
 	/**
@@ -60,36 +45,29 @@ class ArsControllerUpload extends JController
 	 */
 	function upload()
 	{
-		if(version_compare(JVERSION, '1.6.0', 'ge')) {
-			$user = JFactory::getUser();
-			if (!$user->authorise('core.create', 'com_ars')) {
-				return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
-			}
+		$user = JFactory::getUser();
+		if (!$user->authorise('core.create', 'com_ars')) {
+			return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
 		
-		// Check the token
-		if(!JRequest::getVar(JUtility::getToken(), false))
+		if(!FOFInput::getVar(JFactory::getSession()->getToken(), false, $this->input))
 		{
-			JError::raiseError('403', JText::_('Access Denied'));
+			JError::raiseError('403', JText::_('JGLOBAL_AUTH_ACCESS_DENIED'));
 		}
 		
 		// Get the user
 		$user		= JFactory::getUser();
 
 		// Get some data from the request
-		$catid		= JRequest::getInt('id',0);
-		$folder		= JRequest::getString('folder','');
-		$file		= JRequest::getVar('Filedata', '', 'files', 'array');
-		// Clean up the folder name
-		$safeHtmlFilter = JFilterInput::getInstance(null, null, 1, 1);
-		$folder = trim($folder,'/');
-		$folder = $safeHtmlFilter->clean($folder, 'path');
+		$catid		= FOFInput::getInt('id', 0, $this->input);
+		$folder		= FOFInput::getString('folder', '', $this->input);
+		$file		= FOFInput::getVar('Filedata', '', $_FILES, 'array');
 		
 		// Get output directory
-		$model = $this->getModel('Upload','ArsModel');
-		$model->setState('category',(int)$catid);
-		$model->setState('folder',$folder);
-		$outdir = $model->getCategoryFolder();
+		$this->getThisModel()
+			->category((int)$catid)
+			->folder($folder);
+		$outdir = $this->getThisModel()->getCategoryFolder();
 		
 		$potentialPrefix = substr($outdir,0,5);
 		$potentialPrefix = strtolower($potentialPrefix);
@@ -140,15 +118,12 @@ class ArsControllerUpload extends JController
 				JFile::delete($filepath);
 			}
 			
-			if(version_compare(JVERSION,'1.6.0','ge'))
+			// ACL check for Joomla! 1.6.x
+			if (!$user->authorise('core.create', 'com_media'))
 			{
-				// ACL check for Joomla! 1.6.x
-				if (!$user->authorise('core.create', 'com_media'))
-				{
-					// File does not exist and user is not authorised to create
-					JError::raiseWarning(403, JText::_('MSG_NO_UPLOAD_RIGHT'));
-					return false;
-				}
+				// File does not exist and user is not authorised to create
+				JError::raiseWarning(403, JText::_('MSG_NO_UPLOAD_RIGHT'));
+				return false;
 			}
 
 			if (!JFile::upload($file['tmp_name'], $filepath))
@@ -178,7 +153,7 @@ class ArsControllerUpload extends JController
 			if(!$success) {
 				$url = 'index.php?option=com_ars&view=upload&task=category&id='.(int)$catid
 					.'&folder='.urlencode(JRequest::getString('folder'))
-					.'&'.JUtility::getToken(true).'=1';
+					.'&'.JFactory::getSession()->getToken(true).'=1';
 				$this->setRedirect($url, $s3->getError(), 'error');
 				return false;
 			}
@@ -186,7 +161,7 @@ class ArsControllerUpload extends JController
 
 		$url = 'index.php?option=com_ars&view=upload&task=category&id='.(int)$catid
 			.'&folder='.urlencode(JRequest::getString('folder'))
-			.'&'.JUtility::getToken(true).'=1';
+			.'&'.JFactory::getSession()->getToken(true).'=1';
 		$this->setRedirect($url, JText::_('MSG_ALL_FILES_UPLOADED'));
 	}
 
@@ -196,38 +171,33 @@ class ArsControllerUpload extends JController
 	 */
 	public function delete()
 	{
-		if(version_compare(JVERSION, '1.6.0', 'ge')) {
-			$user = JFactory::getUser();
-			if (!$user->authorise('core.delete', 'com_ars')) {
-				return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
-			}
+		$user = JFactory::getUser();
+		if (!$user->authorise('core.delete', 'com_ars')) {
+			return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
 		
-		if(!JRequest::getVar(JUtility::getToken(), false))
+		if(!FOFInput::getVar(JFactory::getSession()->getToken(), false, $this->input))
 		{
-			JError::raiseError('403', JText::_('Access Denied'));
+			JError::raiseError('403', JText::_('JGLOBAL_AUTH_ACCESS_DENIED'));
 		}
 
-		$catid = JRequest::getInt('id',0);
-		$folder = JRequest::getString('folder','');
-		$file = JRequest::getString('file','');
+		$catid	= FOFInput::getInt('id', 0, $this->input);
+		$folder	= FOFInput::getString('folder', '', $this->input);
+		$file	= FOFInput::getString('file', '', $this->input);
 
-		$model = $this->getModel('Upload','ArsModel');
-		$model->setState('category',(int)$catid);
-		$model->setState('folder', $folder);
-		$model->setState('file', $file);
-
-		$status = $model->delete();
+		$status = $this->getThisModel()
+			->category((int)$catid)
+			->folder($folder)
+			->file($file)
+			->delete();
 
 		$url = 'index.php?option=com_ars&view=upload&task=category&id='.(int)$catid
 			.'&folder='.urlencode(JRequest::getString('folder'))
-			.'&'.JUtility::getToken(true).'=1';
-		if($status)
-		{
+			.'&'.JFactory::getSession()->getToken(true).'=1';
+		
+		if($status) {
 			$this->setRedirect($url, JText::_('MSG_FILE_DELETED'));
-		}
-		else
-		{
+		} else {
 			$this->setRedirect($url, JText::_('MSG_FILE_NOT_DELETED'),'error');
 		}
 	}
@@ -237,28 +207,26 @@ class ArsControllerUpload extends JController
 	 */
 	public function newfolder()
 	{
-		if(version_compare(JVERSION, '1.6.0', 'ge')) {
-			$user = JFactory::getUser();
-			if (!$user->authorise('core.create', 'com_ars')) {
-				return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
-			}
+		$user = JFactory::getUser();
+		if (!$user->authorise('core.create', 'com_ars')) {
+			return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
 		
-		if(!JRequest::getVar(JUtility::getToken(), false))
+		if(!FOFInput::getVar(JFactory::getSession()->getToken(), false, $this->input))
 		{
-			JError::raiseError('403', JText::_('Access Denied'));
+			JError::raiseError('403', JText::_('JGLOBAL_AUTH_ACCESS_DENIED'));
 		}
 
-		$catid = JRequest::getInt('id',0);
-		$folder = JRequest::getString('folder','');
-		$file = JRequest::getString('file','');
+		$catid	= FOFInput::getInt('id', 0, $this->input);
+		$folder	= FOFInput::getString('folder', '', $this->input);
+		$file	= FOFInput::getString('file', '', $this->input);
 
-		$model = $this->getModel('Upload','ArsModel');
-		$model->setState('category',(int)$catid);
-		$model->setState('folder', $folder);
-		$model->setState('file', $file);
-		
-		$parent = $model->getCategoryFolder();
+		$parent = $this->getThisModel()
+			->category((int)$catid)
+			->folder($folder)
+			->file($file)
+			->getCategoryFolder();
+
 		$potentialPrefix = substr($parent, 0, 5);
 		$potentialPrefix = strtolower($potentialPrefix);
 		$useS3 = $potentialPrefix == 's3://';
@@ -282,15 +250,11 @@ class ArsControllerUpload extends JController
 
 		$url = 'index.php?option=com_ars&view=upload&task=category&id='.(int)$catid
 			.'&folder='.urlencode(JRequest::getString('folder'))
-			.'&'.JUtility::getToken(true).'=1';
-		if($status)
-		{
+			.'&'.JFactory::getSession()->getToken(true).'=1';
+		if($status) {
 			$this->setRedirect($url, JText::_('MSG_FOLDER_CREATED'));
-		}
-		else
-		{
+		} else {
 			$this->setRedirect($url, JText::_('MSG_FOLDER_NOT_CREATED'),'error');
 		}
 	}
-
 }

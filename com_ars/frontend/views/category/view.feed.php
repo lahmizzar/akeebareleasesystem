@@ -3,22 +3,21 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-jimport('joomla.application.component.view');
-
-class ArsViewCategory extends JView
+class ArsViewCategory extends FOFView
 {
-	function  display($tpl = null) {
-		$model  = $this->getModel();
+	function display($tpl = null) {
+		$this->loadHelper('router');
 
 		$document = JFactory::getDocument();
 		$document->setLink(AKRouter::_('index.php?option=com_ars&view=category&id='.$model->item->id));
+		
+		$model = $this->getModel();
 
-		if(empty($model->itemList)) return;
+		if(!count($model->itemList)) return;
 		foreach($model->itemList as $rel)
 		{
 			$item = new JFeedItem();
@@ -47,3 +46,5 @@ class ArsViewCategory extends JView
 		}
 	}
 }
+
+class ArsViewCategories extends ArsViewCategory {}

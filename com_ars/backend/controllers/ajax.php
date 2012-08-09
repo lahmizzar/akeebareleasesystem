@@ -3,27 +3,24 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
 // Protect from unauthorized access
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-jimport('joomla.application.component.controller');
-
-class ArsControllerAjax extends JController
+class ArsControllerAjax extends FOFController
 {
 	function getfiles()
 	{
-		require_once JPATH_COMPONENT_ADMINISTRATOR.'/helpers/select.php';
+		require_once JPATH_ADMINISTRATOR.'/components/com_ars/helpers/select.php';
 
-		$item_id = JRequest::getInt('item_id',0);
-		$release_id = JRequest::getInt('release_id',0);
-		$selected = JRequest::getString('selected', '');
+		$item_id = FOFInput::getInt('item_id', 0, $this->input);
+		$release_id = FOFInput::getInt('release_id', 0, $this->input);
+		$selected = FOFInput::getString('selected', '', $this->input);
 
 		$result = ArsHelperSelect::getfiles($selected, $release_id, $item_id, 'filename', array('onchange'=>'onFileChange();'));
 		@ob_end_clean;
 		echo $result;
-		die();
+		JFactory::getApplication()->close();
 	}
 }

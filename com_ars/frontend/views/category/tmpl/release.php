@@ -3,12 +3,11 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-$Itemid = JRequest::getInt('Itemid',0);
+$Itemid = FOFInput::getInt('Itemid', 0, $this->input);
 
 jimport('joomla.utilities.date');
 
@@ -23,20 +22,16 @@ $tabs	= JPane::getInstance('tabs');
 	<?php if($item->id): ?>
 	<div class="ars-release-properties">
 		<span class="ars-release-property">
-			<span class="ars-label"><?php echo JText::_('LBL_RELEASES_MATURITY') ?>:</span>
+			<span class="ars-label"><?php echo JText::_('COM_ARS_RELEASES_FIELD_MATURITY') ?>:</span>
 			<span class="ars-value">
-				<?php echo JText::_('LBL_RELEASES_MATURITY_'.  strtoupper($item->maturity)) ?>
+				<?php echo JText::_('COM_ARS_RELEASES_MATURITY_'.  strtoupper($item->maturity)) ?>
 			</span>
 		</span>
 
 		<span class="ars-release-property">
 			<span class="ars-label"><?php echo JText::_('LBL_RELEASES_RELEASEDON') ?>:</span>
 			<span class="ars-value">
-				<?php if(version_compare(JVERSION,'1.6.0','ge')):?>
 				<?php echo JHTML::_('date',$released, JText::_('DATE_FORMAT_LC2')) ?>
-				<?php else: ?>
-				<?php echo $released->toFormat(JText::_('DATE_FORMAT_LC2')) ?>
-				<?php endif; ?>
 			</span>
 		</span>
 
@@ -49,10 +44,10 @@ $tabs	= JPane::getInstance('tabs');
 	</div>
 
 	<?php echo $tabs->startPane('reltabs-'.$item->id); ?>
-		<?php echo $tabs->startPanel(JText::_('LBL_ARS_RELEASE_DESCRIPTION'),'reltabs-'.$item->id.'-desc') ?>
+		<?php echo $tabs->startPanel(JText::_('COM_ARS_RELEASE_DESCRIPTION_LABEL'),'reltabs-'.$item->id.'-desc') ?>
 			<?php echo ArsHelperHtml::preProcessMessage($item->description); ?>
 		<?php echo $tabs->endPanel(); ?>
-		<?php echo $tabs->startPanel(JText::_('LBL_ARS_RELEASE_NOTES'),'reltabs-'.$item->id.'-notes') ?>
+		<?php echo $tabs->startPanel(JText::_('COM_ARS_RELEASE_NOTES_LABEL'),'reltabs-'.$item->id.'-notes') ?>
 			<?php echo ArsHelperHtml::preProcessMessage($item->notes) ?>
 		<?php echo $tabs->endPanel(); ?>
 	<?php echo $tabs->endPane(); ?>

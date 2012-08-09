@@ -3,75 +3,58 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-require_once(dirname(__FILE__).'/default.php');
-
-class ArsControllerCategory extends ArsControllerDefault
+class ArsControllerCategory extends FOFController
 {
-	function  __construct($config = array()) {
+	public function __construct($config = array()) {
+		$config['modelName'] = 'ArsModelBrowses';
 		parent::__construct($config);
-		$this->registerDefaultTask('category');
-		$this->registerTask( 'display', 'category' );
-
-		JRequest::setVar('layout',null);
 	}
-
-	function category()
-	{
-		$id = JRequest::getInt('id',null);
+	
+	public function execute($task) {
+		if(!in_array($task, array('browse','read'))) {
+			$task = 'read';
+		}
+		
+		parent::execute($task);
+	}
+	
+	function onBeforeRead() {
+		$id = FOFInput::getInt('id', 0, $this->input);
 
 		// Get the page parameters
 		$app = JFactory::getApplication();
 		$params = $app->getPageParameters('com_ars');
 
 		// Push the page params to the model
-		$model = $this->getThisModel();
-		$model->setState( 'task',		$this->getTask() );
-		$model->setState( 'grouping',	$params->get('grouping',	'normal') );
-		$model->setState( 'orderby',	$params->get('orderby',		'order') );
-		$model->setState( 'rel_orderby',$params->get('rel_orderby',	'order') );
+		$this->getThisModel()
+			->grouping($params->get('grouping',	'normal'))
+			->orderby($params->get('orderby',		'order'))
+			->rel_orderby($params->get('rel_orderby',	'order'))
+		;
 
-		// Push URL parameters to the model
-		$model->setState( 'start',		max(
-											JRequest::getInt('start', 0),
-											JRequest::getInt('limitstart', 0)
-											) );
+		// Get the category ID
+		if(empty($id)) {
+			$id = $params->get('catid', 0);
+		}
 
-		// Get the item lists
-		if(empty($id))
-		{
-			$id = $params->get('catid');
-		}
-		if($id > 0)
-		{
-			$category = $model->getCategory($id);
-		}
-		else
-		{
+		if($id > 0) {
+			$category = $this->getThisModel()->getCategory($id);
+		} else {
 			$category = null;
 		}
 
-		if(!is_null($category))
-		{
-			$bemodel = JModel::getInstance('Bleedingedge','ArsModel');
+		if($category instanceof ArsTableCategory) {
+			$bemodel = FOFModel::getAnInstance('Bleedingedge','ArsModel');
 			$bemodel->scanCategory($category);
-			$releases = $model->getReleases($id);
+			$releases = $this->getThisModel()->getReleases($id);
+		} else {
+			return false;
 		}
-		else
-		{
-			$no_access_url = trim($params->get('no_access_url',''));
-			if(empty($no_access_url)) {
-				JError::raiseError('403', version_compare(JVERSION, '1.6.0', 'ge') ? JText::_('JLIB_APPLICATION_ERROR_ACCESS_FORBIDDEN') : JText::_('Request Forbidden'));
-			} else {
-				$this->setRedirect($no_access_url);
-				return;
-			}
-		}
-
-		$this->display(true);
+		
+		return true;
 	}
 }

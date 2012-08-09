@@ -3,12 +3,11 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-$Itemid = JRequest::getInt('Itemid',0);
+$Itemid = FOFInput::getInt('Itemid', 0, $this->input);
 $Itemid = empty($Itemid) ? "" : "&Itemid=$Itemid";
 $download_url = AKRouter::_('index.php?option=com_ars&view=download&format=raw&id='.$item->id.$Itemid);
 

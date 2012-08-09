@@ -3,26 +3,37 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-require_once( dirname(__FILE__).'/../view.html.php' );
-
-class ArsViewCategory extends ArsViewBase
+class ArsViewCategory extends FOFViewHtml
 {
-	function onDisplay()
-	{
-		// Add a breadcrumb if necessary
+	public function onAdd($tpl = null) {
+		return $this->onRead();
+	}
+	
+	public function onEdit($tpl = null) {
+		return $this->onRead();
+	}
+	
+	public function onRead($tpl = null) {
+		// Load helpers
+		$this->loadHelper('breadcrumbs');
+		$this->loadHelper('chameleon');
+		$this->loadHelper('html');
+		$this->loadHelper('router');
+		
+		// Load CSS
+		FOFTemplateUtils::addCSS('media://com_ars/css/frontend.css');
+		
+		// Get some useful information
 		$model = $this->getModel();
 		$repoType = $model->item->type;
-
-		require_once JPATH_COMPONENT.'/helpers/breadcrumbs.php';
+		
+		// Add breadcrumbs
 		ArsHelperBreadcrumbs::addRepositoryRoot($repoType);
 		ArsHelperBreadcrumbs::addCategory($model->item->id, $model->item->title);
-
-		require_once JPATH_COMPONENT.'/helpers/html.php';
 		
 		// Add RSS links
 		$app = JFactory::getApplication();
@@ -56,5 +67,13 @@ class ArsViewCategory extends ArsViewBase
 			$document->addHeadLink(JRoute::_($feed.'&type=atom'), 'alternate',
 				'rel', $atom);
 		}
+		
+		$this->assignRef('pparams', $params);
+		$this->assignRef('pagination', $model->relPagination);
+		$this->assign('items', $model->itemList);
+		$this->assignRef('item', $model->item);
+		$this->assign('category_id', $model->getState('category_id', 0));
+		
+		return true;
 	}
 }

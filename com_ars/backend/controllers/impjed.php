@@ -3,33 +3,24 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
 // Protect from unauthorized access
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-require_once JPATH_COMPONENT_ADMINISTRATOR.'/controllers/default.php';
-
-class ArsControllerImpjed extends ArsControllerDefault
+class ArsControllerImpjed extends FOFController
 {
-	function  display($cachable = false) {
-		parent::display($cachable);
-	}
-	
 	/**
 	 * Get all the packages packages of a JoomlaCode FRS repository
 	 */
-	function jcpackages()
+	public function jcpackages()
 	{
-		if(version_compare(JVERSION, '1.6.0', 'ge')) {
-			$user = JFactory::getUser();
-			if (!$user->authorise('core.create', 'com_ars')) {
-				return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
-			}
+		$user = JFactory::getUser();
+		if (!$user->authorise('core.create', 'com_ars')) {
+			return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
 		
-		$project = JRequest::getCmd('project','');
+		$project = FOFInput::getCmd('project', '', $this->input);
 
 		if(empty($project))
 		{
@@ -37,31 +28,26 @@ class ArsControllerImpjed extends ArsControllerDefault
 		}
 		else
 		{
-			$model = $this->getModel('Impjed','ArsModel');
-			$data = $model->getPackages($project);
+			$data = $this->getThisModel()->getPackages($project);
 		}
 
-		$basePath = (!$this->isJoomla16) ? $this->_basePath : $this->basePath;
-		$view = $this->getView('Impjed', 'raw', 'ArsView', array( 'base_path'=>$basePath));
-		$view->setLayout('default');
-		$view->assign('data', $data);
-		$view->display();
+		$json = json_encode($data);
+		echo "###$json###";
+		JFactory::getApplication()->close();
 	}
 
 	/**
 	 * Get all the releases of a JoomlaCode FRS pacakge
 	 */
-	function jcreleases()
+	public function jcreleases()
 	{
-		if(version_compare(JVERSION, '1.6.0', 'ge')) {
-			$user = JFactory::getUser();
-			if (!$user->authorise('core.create', 'com_ars')) {
-				return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
-			}
+		$user = JFactory::getUser();
+		if (!$user->authorise('core.create', 'com_ars')) {
+			return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
 		
-		$project = JRequest::getCmd('project','');
-		$package = JRequest::getCmd('package','');
+		$project = FOFInput::getCmd('project', '', $this->input);
+		$package = FOFInput::getCmd('package', '', $this->input);
 
 		if(empty($project) || empty($package))
 		{
@@ -69,32 +55,27 @@ class ArsControllerImpjed extends ArsControllerDefault
 		}
 		else
 		{
-			$model = $this->getModel('Impjed','ArsModel');
-			$data = $model->getReleases($project, $package);
+			$data = $this->getThisModel()->getReleases($project, $package);
 		}
 
-		$basePath = (!$this->isJoomla16) ? $this->_basePath : $this->basePath;
-		$view = $this->getView('Impjed', 'raw', 'ArsView', array( 'base_path'=>$basePath));
-		$view->setLayout('default');
-		$view->assign('data', $data);
-		$view->display();
+		$json = json_encode($data);
+		echo "###$json###";
+		JFactory::getApplication()->close();
 	}
 
 	/**
 	 * Get all the files of a JoomlaCode FRS release
 	 */
-	function jcfiles()
+	public function jcfiles()
 	{
-		if(version_compare(JVERSION, '1.6.0', 'ge')) {
-			$user = JFactory::getUser();
-			if (!$user->authorise('core.create', 'com_ars')) {
-				return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
-			}
+		$user = JFactory::getUser();
+		if (!$user->authorise('core.create', 'com_ars')) {
+			return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
 		
-		$project = JRequest::getCmd('project','');
-		$package = JRequest::getCmd('package','');
-		$release = JRequest::getCmd('release','');
+		$project = FOFInput::getCmd('project', '', $this->input);
+		$package = FOFInput::getCmd('package', '', $this->input);
+		$release = FOFInput::getCmd('release', '', $this->input);
 
 		if(empty($project) || empty($package) || empty($release))
 		{
@@ -102,31 +83,26 @@ class ArsControllerImpjed extends ArsControllerDefault
 		}
 		else
 		{
-			$model = $this->getModel('Impjed','ArsModel');
-			$data = $model->getFiles($project, $package, $release);
+			$data = $this->getThisModel()->getFiles($project, $package, $release);
 		}
 
-		$basePath = (!$this->isJoomla16) ? $this->_basePath : $this->basePath;
-		$view = $this->getView('Impjed', 'raw', 'ArsView', array( 'base_path'=>$basePath));
-		$view->setLayout('default');
-		$view->assign('data', $data);
-		$view->display();
+		$json = json_encode($data);
+		echo "###$json###";
+		JFactory::getApplication()->close();
 	}
 
 	/**
 	 * Imports a remote file into an ARS release
 	 */
-	function import()
+	public function import()
 	{
-		if(version_compare(JVERSION, '1.6.0', 'ge')) {
-			$user = JFactory::getUser();
-			if (!$user->authorise('core.create', 'com_ars')) {
-				return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
-			}
+		$user = JFactory::getUser();
+		if (!$user->authorise('core.create', 'com_ars')) {
+			return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
 		
-		$release = JRequest::getInt('release', 0);
-		$url = JRequest::getString('url', '');
+		$release = FOFInput::getInt('release', 0, $this->input);
+		$url = FOFInput::getString('url', '', $this->input);
 
 		if(empty($url) || empty($release))
 		{
@@ -134,15 +110,12 @@ class ArsControllerImpjed extends ArsControllerDefault
 		}
 		else
 		{
-			$model = $this->getModel('Impjed','ArsModel');
-			$item = $model->createArsFile($release, $url);
+			$item = $this->getThisModel()->createArsFile($release, $url);
 			$data = (is_numeric($item) && ($item > 0));
 		}
 
-		$basePath = (!$this->isJoomla16) ? $this->_basePath : $this->basePath;
-		$view = $this->getView('Impjed', 'raw', 'ArsView', array( 'base_path'=>$basePath));
-		$view->setLayout('default');
-		$view->assign('data', $data);
-		$view->display();
+		$json = json_encode($data);
+		echo "###$json###";
+		JFactory::getApplication()->close();
 	}
 }

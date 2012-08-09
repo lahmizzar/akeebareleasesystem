@@ -3,111 +3,82 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-jimport('joomla.application.component.model');
-jimport('joomla.filesystem.file');
-
-if(!class_exists('ArsModelBase'))
+class ArsModelReleases extends FOFModel
 {
-	if(!JFile::exists(JPATH_COMPONENT_ADMINISTRATOR.'/models/base.php')) {
-		JError::raiseError(500,'Base Model not found');
-		return false;
-	}
-	require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/base.php';
-}
-class ArsModelReleases extends ArsModelBase
-{
-	public function save($data) {
-		// When the user unselects all group checkboxes, the groups key is not
-		// set, causing the model to never reset them to "none selected"
-		if(!array_key_exists('groups', $data)) {
-			$data['groups'] = '';
-		}
-		return parent::save($data);
-	}
-	
-	function  buildQuery($overrideLimits = false) {
-		$where = array();
-
+	public function buildQuery($overrideLimits = false)
+	{
+		$db = $this->getDbo();
+		
+		$query = FOFQueryAbstract::getNew($db)
+			->select(array(
+				$db->qn('r').'.*',
+				$db->qn('c').'.'.$db->qn('title').' AS '.$db->qn('cat_title'),
+				$db->qn('c').'.'.$db->qn('alias').' AS '.$db->qn('cat_alias'),
+				$db->qn('c').'.'.$db->qn('type').' AS '.$db->qn('cat_type'),
+				$db->qn('c').'.'.$db->qn('groups').' AS '.$db->qn('cat_groups'),
+				$db->qn('c').'.'.$db->qn('directory').' AS '.$db->qn('cat_directory'),
+				$db->qn('c').'.'.$db->qn('access').' AS '.$db->qn('cat_access'),
+				$db->qn('c').'.'.$db->qn('published').' AS '.$db->qn('cat_published'),
+				$db->qn('c').'.'.$db->qn('language').' AS '.$db->qn('cat_language'),
+			))
+			->from($db->quoteName('#__ars_releases').' AS '.$db->qn('r'))
+			->join('INNER', $db->qn('#__ars_categories').' AS '.$db->qn('c').' ON('.
+				$db->qn('c').'.'.$db->qn('id').' = '.$db->qn('r').'.'.$db->qn('category_id').')')
+			;
+		
+		
 		$fltCategory	= $this->getState('category', null, 'int');
-		$fltVersion		= $this->getState('version', null, 'string');
-		$fltPublished	= $this->getState('published', null, 'cmd');
-		$fltNoBEUnpub	= $this->getState('nobeunpub', null, 'int');
-		$fltMaturity	= $this->getState('maturity', 'alpha', 'cmd');
-		$fltLanguage	= $this->getState('language', null, 'cmd');
-
-		$db = $this->getDBO();
-		if($fltCategory) {
-			$where[] = '`category_id` ='.$db->getEscaped($fltCategory);
-		}
-		if($fltPublished != '') {
-			$where[] = '`r`.`published` = '.$db->Quote((int)$fltPublished);
-		}
-		if($fltVersion) {
-			$where[] = '`version` ='.$db->getEscaped($fltVersion);
-		}
-		if($fltNoBEUnpub) {
-			$where[] =  "NOT(`c`.`type` = 'bleedingedge' AND `r`.`published` = 0)";
-		}
-		switch($fltMaturity) {
-			case 'beta':
-				$where[] = '`r`.`maturity` IN ("beta","rc","stable")';
-				break;
-			case 'rc':
-				$where[] = '`r`.`maturity` IN ("rc","stable")';
-				break;
-			case 'stable':
-				$where[] = '`r`.`maturity` = "stable"';
-				break;
-		}
-		if($fltLanguage) {
-			$where[] = '`r`.`language` IN ("*", '.$db->quote($fltLanguage).')';
-			$where[] = '`c`.`language` IN ("*", '.$db->quote($fltLanguage).')';
-		}
-
-		$query = <<<ENDSQL
-SELECT
-    `r`.*, `c`.`title` as `cat_title`, `c`.`alias` as `cat_alias`,
-    `c`.`type` as `cat_type`, `c`.`groups` as `cat_groups`,
-    `c`.`directory` as `cat_directory`, `c`.`access` as `cat_access`,
-    `c`.`published` as `cat_published`, `c`.`language` AS `cat_language`
-FROM
-    `#__ars_releases` AS `r`
-    INNER JOIN `#__ars_categories` AS `c` ON(`c`.`id` = `r`.`category_id`)
-ENDSQL;
-
-		if(count($where) && !$overrideLimits)
-		{
-			$query .= ' WHERE (' . implode(') AND (',$where) . ')';
+		if($fltCategory > 0) {
+			$query->where($db->qn('category_id').' = '.$db->q($fltCategory));
 		}
 		
-		if($fltNoBEUnpub && $overrideLimits) {
-			$query .= " WHERE NOT(`c`.`type` = 'bleedingedge' AND `r`.`published` = 0)";
+		$fltVersion		= $this->getState('version', null, 'string');
+		if($fltVersion) {
+			$query->where($db->qn('version').' = '.$db->q($fltVersion));
 		}
-
-		if(!$overrideLimits) {
-			$order = $this->getState('order',null,'cmd');
-			if($order === 'Array') $order = null;
-			$dir = $this->getState('dir',null,'cmd');
-
-			$app = JFactory::getApplication();
-			$hash = $this->getHash();
-			if(empty($order)) {
-				$order = $app->getUserStateFromRequest($hash.'filter_order', 'filter_order', 'id');
-			}
-			if(empty($dir)) {
-				$dir = $app->getUserStateFromRequest($hash.'filter_order_Dir', 'filter_order_Dir', 'DESC');
-				$dir = in_array(strtoupper($dir),array('DESC','ASC')) ? strtoupper($dir) : "ASC";
-			}
-			$query .= ' ORDER BY '.$db->nameQuote($order).' '.$dir;
+		
+		$fltPublished	= $this->getState('published', null, 'cmd');
+		if($fltPublished != '') {
+			$query->where($db->qn('r').'.'.$db->qn('published').' = '.$db->q($fltPublished));
 		}
+		
+		$fltNoBEUnpub	= $this->getState('nobeunpub', null, 'int');
+		if($fltNoBEUnpub) {
+			$query->where('NOT('.$db->qn('r').'.'.$db->qn('published').' = '.$db->q('0').' AND '.
+					$db->qn('c').'.'.$db->qn('type').'='.$db->q('bleedingedge').')');
+		}
+		
+		$fltLanguage	= $this->getState('language', null, 'cmd');
+		if($fltLanguage != '') {
+			$query->where($db->qn('r').'.'.$db->qn('language').' IN ('.$db->q('*').','.$db->q($fltLanguage).')');
+			$query->where($db->qn('c').'.'.$db->qn('language').' IN ('.$db->q('*').','.$db->q($fltLanguage).')');
+		}
+		
+		$fltMaturity	= $this->getState('maturity', 'alpha', 'cmd');
+		switch($fltMaturity) {
+			case 'beta':
+				$query->where($db->qn('r').'.'.$db->qn('maturity').' IN ('.$db->q('beta'),','.$db->q('rc').','.$db->q('stable').')');
+				break;
+			case 'rc':
+				$query->where($db->qn('r').'.'.$db->qn('maturity').' IN ('.$db->q('rc').','.$db->q('stable').')');
+				break;
+			case 'stable':
+				$query->where($db->qn('r').'.'.$db->qn('maturity').' = '.$db->q('stable'));
+				break;
+		}
+		
+		$order = $this->getState('filter_order', 'id', 'cmd');
+		if(!in_array($order, array_keys($this->getTable()->getData()))) $order = 'id';
+		$dir = $this->getState('filter_order_Dir', 'DESC', 'cmd');
+		$query->order($order.' '.$dir);
+
 		return $query;
 	}
-
+	
 	function getReorderWhere()
 	{
 		$where = array();
@@ -115,10 +86,10 @@ ENDSQL;
 		$fltPublished	= $this->getState('published', null, 'cmd');
 		$db = $this->getDBO();
 		if($fltCategory) {
-			$where[] = '`category_id` ='.$db->getEscaped($fltCategory);
+			$where[] = $db->qn('category_id').' = '.$db->q($fltCategory);
 		}
 		if($fltPublished != '') {
-			$where[] = '`published` = '.$db->Quote((int)$fltPublished);
+			$where[] = $db->qn('published').' = '.$db->q($fltPublished);
 		}
 		if(count($where)) {
 			return '(' . implode(') AND (',$where) . ')';

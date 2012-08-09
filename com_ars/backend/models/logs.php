@@ -3,28 +3,39 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-jimport('joomla.application.component.model');
-jimport('joomla.filesystem.file');
-
-if(!class_exists('ArsModelBase'))
+class ArsModelLogs extends FOFModel
 {
-	if(!JFile::exists(JPATH_COMPONENT_ADMINISTRATOR.'/models/base.php')) {
-		JError::raiseError(500,'Base Model not found');
-		return false;
-	}
-	require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/base.php';
-}
-
-class ArsModelLogs extends ArsModelBase
-{
-	function  buildQuery($overrideLimits = false) {
-		$where = array();
-
+	public function buildQuery($overrideLimits = false)
+	{
+		$db = $this->getDbo();
+		
+		$query = FOFQueryAbstract::getNew($db)
+			->select(array(
+				$db->qn('l').'.*',
+				$db->qn('c').'.'.$db->qn('title').' AS '.$db->qn('category'),
+				$db->qn('r').'.'.$db->qn('version'),
+				$db->qn('r').'.'.$db->qn('maturity'),
+				$db->qn('i').'.'.$db->qn('title').' AS '.$db->qn('item'),
+				'IF('.$db->qn('i').'.'.$db->qn('type').' = '.$db->q('file').','.$db->qn('i').'.'.$db->qn('filename').','.$db->qn('i').'.'.$db->qn('url').') AS '.$db->qn('asset'),
+				$db->qn('i').'.'.$db->qn('updatestream'),
+				$db->qn('i').'.'.$db->qn('filesize'),
+				$db->qn('i').'.'.$db->qn('release_id'),
+				$db->qn('r').'.'.$db->qn('category_id'),
+				$db->qn('u').'.'.$db->qn('name'),
+				$db->qn('u').'.'.$db->qn('username'),
+				$db->qn('u').'.'.$db->qn('email')
+			))
+			->from($db->qn('#__ars_log').' AS '.$db->qn('l'))
+			->join('INNER', $db->qn('#__ars_items').' AS '.$db->qn('i').' ON('.$db->qn('i').'.'.$db->qn('id').' = '.$db->qn('l').'.'.$db->qn('item_id').')')
+			->join('INNER', $db->qn('#__ars_releases').' AS '.$db->qn('r').' ON('.$db->qn('r').'.'.$db->qn('id').' = '.$db->qn('i').'.'.$db->qn('release_id').')')
+			->join('INNER', $db->qn('#__ars_categories').' AS '.$db->qn('c').' ON('.$db->qn('c').'.'.$db->qn('id').' = '.$db->qn('r').'.'.$db->qn('category_id').')')
+			->join('LEFT', $db->qn('#__users').' AS '.$db->qn('u').' ON('.$db->qn('u').'.'.$db->qn('id').' = '.$db->qn('user_id').')')
+			;
+		
 		$fltItemText	= $this->getState('itemtext', null, 'string');
 		$fltUserText	= $this->getState('usertext', null, 'string');
 		$fltReferer		= $this->getState('referer', null, 'string');
@@ -33,51 +44,54 @@ class ArsModelLogs extends ArsModelBase
 		$fltAuthorized	= $this->getState('authorized', null, 'cmd');
 		$fltCategory	= $this->getState('category', null, 'int');
 		$fltVersion		= $this->getState('version', null, 'int');
-
+		
 		if(!is_null($fltAuthorized) && ($fltAuthorized != '')) {
 			$fltAuthorized = (int)$fltAuthorized;
 		} else {
 			$fltAuthorized = null;
 		}
-
-		$db = $this->getDBO();
+		
 		if($fltItemText) {
 			// This extra query approach is required for performance on very large log tables (multiple millions of rows)
 			$itemIDs = $this->getItems($fltItemText);
 			if(empty($itemIDs)) {
-				$where[] = 'FALSE';
+				$query->where('FALSE');
 			} else {
 				$ids = implode(',', $itemIDs);
-				$where[] = 'item_id IN ('.$ids.')';
+				$query->where($db->qn('item_id').' IN('.$ids.')');
 			}
 		}
 		if($fltUserText) {
 			// This extra query approach is required for performance on very large log tables (multiple millions of rows)
 			$userIDs = $this->getUsers($fltUserText);
 			if(empty($userIDs)) {
-				$where[] = 'FALSE';
+				$query->where('FALSE');
 			} else {
 				$ids = implode(',', $userIDs);
-				$where[] = 'user_id IN ('.$ids.')';
+				$query->where($db->qn('user_id').' IN('.$ids.')');
 			}
 		}
 		if($fltReferer) {
-			$where[] = '`referer` LIKE "%'.$db->getEscaped($fltReferer).'%"';
+			$query->where($db->qn('referer').' LIKE '.$db->q("%$fltReferer%"));
 		}
 		if($fltIP) {
-			$where[] = '`ip` LIKE "%'.$db->getEscaped($fltIP).'%"';
+			$query->where($db->qn('ip').' LIKE '.$db->q("%$fltIP%"));
 		}
 		if($fltCountry) {
-			$where[] = '`country` = '.$db->Quote($fltCountry);
+			$query->where($db->qn('country').' = '.$db->q($fltCountry));
 		}
 		if(is_numeric($fltAuthorized)) {
-			$where[] = '`authorized` = '.$db->Quote($fltAuthorized);
+			$query->where($db->qn('authorized').' = '.$db->q($fltAuthorized));
 		}
 		if($fltCategory) {
-			$query_inner = 'SELECT '.$db->nameQuote('id').' FROM '.$db->nameQuote('#__ars_releases').' WHERE '.
-				$db->nameQuote('category_id').' = '.$db->quote($fltCategory);
-			$query_outer = 'SELECT '.$db->nameQuote('id').' FROM '.$db->nameQuote('#__ars_items').' WHERE '.
-				$db->nameQuote('release_id').' IN ('.$query_inner.')';
+			$query_inner = FOFQueryAbstract::getNew($db)
+				->select($db->qn('id'))
+				->from($db->qn('#__ars_releases'))
+				->where($db->qn('category_id').' = '.$db->q($fltCategory));
+			$query_outer = FOFQueryAbstract::getNew($db)
+				->select($db->qn('id'))
+				->from($db->qn('#__ars_items'))
+				->where($db->qn('release_id').' IN ('.$query_inner.')');
 			$db->setQuery($query_outer);
 			if(version_compare(JVERSION, '3.0', 'ge')) {
 				$ids = $db->loadColumn();
@@ -86,11 +100,14 @@ class ArsModelLogs extends ArsModelBase
 			}
 			$clause = '('.implode(", ", $ids).')';
 			
-			$where[] = '`item_id` IN '.$clause;
+			$query->where($db->qn('item_id').' IN '.$clause);
 		}
+		
 		if($fltVersion) {
-			$query_outer = 'SELECT '.$db->nameQuote('id').' FROM '.$db->nameQuote('#__ars_items').' WHERE '.
-				$db->nameQuote('release_id').' = '.$db->quote($fltVersion);
+			$query_outer = FOFQueryAbstract::getNew($db)
+				->select($db->qn('id'))
+				->from($db->qn('#__ars_items'))
+				->where($db->qn('release_id').' = '.$db->q($fltVersion));
 			$db->setQuery($query_outer);
 			if(version_compare(JVERSION, '3.0', 'ge')) {
 				$ids = $db->loadColumn();
@@ -99,52 +116,25 @@ class ArsModelLogs extends ArsModelBase
 			}
 			$clause = '('.implode(", ", $ids).')';
 			
-			$where[] = '`item_id` IN '.$clause;
+			$query->where($db->qn('item_id').' IN '.$clause);
 		}
+		
+		$order = $this->getState('filter_order', 'id', 'cmd');
+		if(!in_array($order, array_keys($this->getTable()->getData()))) $order = 'id';
+		$dir = $this->getState('filter_order_Dir', 'DESC', 'cmd');
+		$query->order($order.' '.$dir);
 
-		$query = <<<ENDSQL
-SELECT
-  l.*,
-  c.title as category, r.version, r.maturity, i.title as item,
-  IF(i.`type` = 'file', i.filename, i.url) as asset, i.updatestream, i.filesize,
-  i.release_id, r.category_id,
-  u.name, u.username, u.email
-FROM
-  #__ars_log AS l
-  JOIN #__ars_items AS i ON(i.id = l.item_id)
-  JOIN #__ars_releases AS r ON(r.id = i.release_id)
-  JOIN #__ars_categories AS c ON(c.id = r.category_id)
-  LEFT JOIN #__users AS u ON(u.id = user_id)
-ENDSQL;
-
-		if(count($where) && !$overrideLimits)
-		{
-			$query .= ' WHERE (' . implode(') AND (',$where) . ')';
-		}
-
-		if(!$overrideLimits) {
-			$order = $this->getState('order',null,'cmd');
-			if($order === 'Array') $order = null;
-			$dir = $this->getState('dir',null,'cmd');
-
-			$app = JFactory::getApplication();
-			$hash = $this->getHash();
-			if(empty($order)) {
-				$order = $app->getUserStateFromRequest($hash.'filter_order', 'filter_order', 'id');
-			}
-			if(empty($dir)) {
-				$dir = $app->getUserStateFromRequest($hash.'filter_order_Dir', 'filter_order_Dir', 'DESC');
-				$dir = in_array(strtoupper($dir),array('DESC','ASC')) ? strtoupper($dir) : "ASC";
-			}
-
-			$query .= ' ORDER BY '.$db->nameQuote($order).' '.$dir;
-		}
 		return $query;
 	}
 	
-	function  buildCountQuery() {
-		$where = array();
-
+	public function buildCountQuery() {
+		$db = $this->getDbo();
+		
+		$query = FOFQueryAbstract::getNew($db)
+			->select('COUNT(*)')
+			->from($db->qn('#__ars_log').' AS '.$db->qn('l'))
+			;
+		
 		$fltItemText	= $this->getState('itemtext', null, 'string');
 		$fltUserText	= $this->getState('usertext', null, 'string');
 		$fltReferer		= $this->getState('referer', null, 'string');
@@ -153,53 +143,54 @@ ENDSQL;
 		$fltAuthorized	= $this->getState('authorized', null, 'cmd');
 		$fltCategory	= $this->getState('category', null, 'int');
 		$fltVersion		= $this->getState('version', null, 'int');
-
+		
 		if(!is_null($fltAuthorized) && ($fltAuthorized != '')) {
 			$fltAuthorized = (int)$fltAuthorized;
 		} else {
 			$fltAuthorized = null;
 		}
-
-		$db = $this->getDBO();
-		/**/
+		
 		if($fltItemText) {
 			// This extra query approach is required for performance on very large log tables (multiple millions of rows)
 			$itemIDs = $this->getItems($fltItemText);
 			if(empty($itemIDs)) {
-				$where[] = 'FALSE';
+				$query->where('FALSE');
 			} else {
 				$ids = implode(',', $itemIDs);
-				$where[] = 'item_id IN ('.$ids.')';
+				$query->where($db->qn('item_id').' IN('.$ids.')');
 			}
 		}
 		if($fltUserText) {
 			// This extra query approach is required for performance on very large log tables (multiple millions of rows)
 			$userIDs = $this->getUsers($fltUserText);
 			if(empty($userIDs)) {
-				$where[] = 'FALSE';
+				$query->where('FALSE');
 			} else {
 				$ids = implode(',', $userIDs);
-				$where[] = 'user_id IN ('.$ids.')';
+				$query->where($db->qn('user_id').' IN('.$ids.')');
 			}
 		}
-		/**/
 		if($fltReferer) {
-			$where[] = '`referer` LIKE "%'.$db->getEscaped($fltReferer).'%"';
+			$query->where($db->qn('referer').' LIKE '.$db->q("%$fltReferer%"));
 		}
 		if($fltIP) {
-			$where[] = '`ip` LIKE "%'.$db->getEscaped($fltIP).'%"';
+			$query->where($db->qn('ip').' LIKE '.$db->q("%$fltIP%"));
 		}
 		if($fltCountry) {
-			$where[] = '`country` LIKE "%'.$db->getEscaped($fltCountry).'%"';
+			$query->where($db->qn('country').' = '.$db->q($fltCountry));
 		}
 		if(is_numeric($fltAuthorized)) {
-			$where[] = '`authorized` = '.$db->Quote($fltAuthorized);
+			$query->where($db->qn('authorized').' = '.$db->q($fltAuthorized));
 		}
 		if($fltCategory) {
-			$query_inner = 'SELECT '.$db->nameQuote('id').' FROM '.$db->nameQuote('#__ars_releases').' WHERE '.
-				$db->nameQuote('category_id').' = '.$db->quote($fltCategory);
-			$query_outer = 'SELECT '.$db->nameQuote('id').' FROM '.$db->nameQuote('#__ars_items').' WHERE '.
-				$db->nameQuote('release_id').' IN ('.$query_inner.')';
+			$query_inner = FOFQueryAbstract::getNew($db)
+				->select($db->qn('id'))
+				->from($db->qn('#__ars_releases'))
+				->where($db->qn('category_id').' = '.$db->q($fltCategory));
+			$query_outer = FOFQueryAbstract::getNew($db)
+				->select($db->qn('id'))
+				->from($db->qn('#__ars_items'))
+				->where($db->qn('release_id').' IN ('.$query_inner.')');
 			$db->setQuery($query_outer);
 			if(version_compare(JVERSION, '3.0', 'ge')) {
 				$ids = $db->loadColumn();
@@ -208,11 +199,14 @@ ENDSQL;
 			}
 			$clause = '('.implode(", ", $ids).')';
 			
-			$where[] = '`item_id` IN '.$clause;
+			$query->where($db->qn('item_id').' IN '.$clause);
 		}
+		
 		if($fltVersion) {
-			$query_outer = 'SELECT '.$db->nameQuote('id').' FROM '.$db->nameQuote('#__ars_items').' WHERE '.
-				$db->nameQuote('release_id').' = '.$db->quote($fltVersion);
+			$query_outer = FOFQueryAbstract::getNew($db)
+				->select($db->qn('id'))
+				->from($db->qn('#__ars_items'))
+				->where($db->qn('release_id').' = '.$db->q($fltVersion));
 			$db->setQuery($query_outer);
 			if(version_compare(JVERSION, '3.0', 'ge')) {
 				$ids = $db->loadColumn();
@@ -221,24 +215,17 @@ ENDSQL;
 			}
 			$clause = '('.implode(", ", $ids).')';
 			
-			$where[] = '`item_id` IN '.$clause;
+			$query->where($db->qn('item_id').' IN '.$clause);
 		}
-
-		$query = <<<ENDSQL
-SELECT
-  COUNT(*)
-FROM
-  #__ars_log AS l
-ENDSQL;
-
-		if(count($where))
-		{
-			$query .= ' WHERE (' . implode(') AND (',$where) . ')';
-		}
+		
+		$order = $this->getState('filter_order', 'id', 'cmd');
+		if(!in_array($order, array_keys($this->getTable()->getData()))) $order = 'id';
+		$dir = $this->getState('filter_order_Dir', 'DESC', 'cmd');
+		$query->order($order.' '.$dir);
 
 		return $query;
 	}
-
+	
 	/**
 	 * Returns the user IDs whose username, email address or real name contains the $frag string
 	 * @param string $frag
@@ -247,8 +234,16 @@ ENDSQL;
 	private function getUsers($frag)
 	{
 		$db = $this->getDBO();
-		$qfrag = "'%" . $db->getEscaped($frag) . "%'";
-		$db->setQuery("SELECT `id` FROM `#__users` WHERE `name` LIKE $qfrag OR `username` LIKE $qfrag OR `email` LIKE $qfrag OR `params` LIKE $qfrag");
+		
+		$qfrag = $db->q("%".$frag."%");
+		$query = $db->getQuery(true)
+			->select($db->qn('id'))
+			->from($db->qn('#__users'))
+			->where($db->qn('name').' LIKE '.$qfrag, 'OR')
+			->where($db->qn('username').' LIKE '.$qfrag, 'OR')
+			->where($db->qn('email').' LIKE '.$qfrag, 'OR')
+			->where($db->qn('params').' LIKE '.$qfrag, 'OR');
+		$db->setQuery($query);
 		if(version_compare(JVERSION, '3.0', 'ge')) {
 			return $db->loadColumn();
 		} else {
@@ -264,20 +259,17 @@ ENDSQL;
 	private function getItems($frag)
 	{
 		$db = $this->getDBO();
-		$qfrag = "'%" . $db->getEscaped($frag) . "%'";
-		$query = <<<ENDQUERY
-select
-	id
-FROM
-	`#__ars_items`
-WHERE
-	title LIKE $qfrag
-ENDQUERY;
+		$qfrag = $db->q("%".$frag."%");
+		$query = FOFQueryAbstract::getNew($db)
+			->select($db->qn('id'))
+			->from($db->qn('#__ars_items'))
+			->where($db->qn('title').' LIKE '.$qfrag);
+		
 		$db->setQuery($query);
 		if(version_compare(JVERSION, '3.0', 'ge')) {
 			return $db->loadColumn();
 		} else {
 			return $db->loadResultArray();
 		}
-	}
+	}	
 }

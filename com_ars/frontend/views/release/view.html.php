@@ -3,36 +3,44 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-require_once( dirname(__FILE__).'/../view.html.php' );
-
-class ArsViewRelease extends ArsViewBase
+class ArsViewRelease extends FOFViewHtml
 {
-	function onDisplay()
+	public function onAdd($tpl = null) {
+		return $this->onRead();
+	}
+	
+	public function onEdit($tpl = null) {
+		return $this->onRead();
+	}
+	
+	function onRead($tpl = null)
 	{
+		// Load helpers
+		$this->loadHelper('breadcrumbs');
+		$this->loadHelper('chameleon');
+		$this->loadHelper('html');
+		$this->loadHelper('router');
+		
+		// Load CSS
+		FOFTemplateUtils::addCSS('media://com_ars/css/frontend.css');
+		
 		// Add a breadcrumb if necessary
 		$model = $this->getModel();
 
-		$catModel = JModel::getInstance('Categories','ArsModel');
-		$catModel->reset();
-		$catModel->setId($model->item->category_id);
-		$category = $catModel->getItem();
+		$catModel = FOFModel::getTmpInstance('Categories','ArsModel');
+		$category = $catModel->getItem($model->item->category_id);
 
 		$repoType = $category->type;
 		
-		require_once JPATH_COMPONENT.'/helpers/breadcrumbs.php';
 		ArsHelperBreadcrumbs::addRepositoryRoot($repoType);
 		ArsHelperBreadcrumbs::addCategory($category->id, $category->title);
 		ArsHelperBreadcrumbs::addRelease($model->item->id, $model->item->version);
 
-		require_once JPATH_COMPONENT.'/helpers/html.php';
-
 		$this->assignRef( 'category',	$category );
-
 
 		// Add RSS links
 		$app = JFactory::getApplication();
@@ -76,6 +84,16 @@ class ArsViewRelease extends ArsViewBase
 		
 		$model->itemList = $items;
 		
-		$this->assign('cparams', $params);
+		$this->assignRef('cparams', $params);
+		$this->assignRef('item', $model->item);
+		$this->assign('items', $model->itemList);
+		$this->assignRef('pagination', $model->items_pagination);
+		$this->assign('release_id', $model->item->id);
+		
+		if($this->getLayout() == 'item') {
+			$this->setLayout('default');
+		}
+		
+		return true;
 	}
 }

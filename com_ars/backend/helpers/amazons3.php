@@ -25,6 +25,10 @@
 // Protection against direct access
 defined('_JEXEC') or die();
 
+if(!defined('AKEEBA_CACERT_PEM')) {
+	define('AKEEBA_CACERT_PEM', JPATH_ADMINISTRATOR.'/components/com_ars/assets/cacert.pem');
+}
+
 class ArsHelperAmazons3 extends JObject
 {
 	// ACL flags
@@ -53,21 +57,33 @@ class ArsHelperAmazons3 extends JObject
 		if(!is_object($instance)) {
 			$component = JComponentHelper::getComponent('com_ars');
 			if(!($component->params instanceof JRegistry)) {
-				$params = new JParameter($component->params);
+				$params = new JRegistry($component->params);
 			} else {
 				$params = $component->params;
 			}
 			
 			if(empty($accessKey) && empty($secretKey)) {
-				$accessKey	= $params->getValue('s3access','');
-				$secretKey	= $params->getValue('s3secret','');
-				$useSSL		= $params->getValue('s3ssl',true);
+				if(version_compare(JVERSION, '3.0', 'ge')) {
+					$accessKey	= $params->get('s3access','');
+					$secretKey	= $params->get('s3secret','');
+					$useSSL		= $params->get('s3ssl',true);
+				} else {
+					$accessKey	= $params->getValue('s3access','');
+					$secretKey	= $params->getValue('s3secret','');
+					$useSSL		= $params->getValue('s3ssl',true);
+				}
 			}
 			
 			$instance = new ArsHelperAmazons3($accessKey, $secretKey, $useSSL);
-			self::$__default_bucket = $params->getValue('s3bucket', '');
-			self::$__default_acl = $params->getValue('s3perms','private');
-			self::$__default_time = $params->getValue('s3time', 900);
+			if(version_compare(JVERSION, '3.0', 'ge')) {
+				self::$__default_bucket = $params->get('s3bucket', '');
+				self::$__default_acl = $params->get('s3perms','private');
+				self::$__default_time = $params->get('s3time', 900);
+			} else {
+				self::$__default_bucket = $params->getValue('s3bucket', '');
+				self::$__default_acl = $params->getValue('s3perms','private');
+				self::$__default_time = $params->getValue('s3time', 900);
+			}
 		}
 		
 		return $instance;

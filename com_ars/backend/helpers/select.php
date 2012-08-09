@@ -3,10 +3,9 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted access');
+defined('_JEXEC') or die();
 
 class ArsHelperSelect
 {
@@ -121,9 +120,9 @@ class ArsHelperSelect
 	public static function categorytypes($selected = null, $id = 'type', $attribs = array() )
 	{
 		$options = array();
-		$options[] = JHTML::_('select.option','','- '.JText::_('LBL_CATEGORIES_TYPE_SELECT').' -');
-		$options[] = JHTML::_('select.option','normal',JText::_('LBL_CATEGORIES_TYPE_NORMAL'));
-		$options[] = JHTML::_('select.option','bleedingedge',JText::_('LBL_CATEGORIES_TYPE_BLEEDINGEDGE'));
+		$options[] = JHTML::_('select.option','','- '.JText::_('COM_ARS_CATEGORIES_TYPE_SELECT').' -');
+		$options[] = JHTML::_('select.option','normal',JText::_('COM_ARS_CATEGORIES_TYPE_NORMAL'));
+		$options[] = JHTML::_('select.option','bleedingedge',JText::_('COM_ARS_CATEGORIES_TYPE_BLEEDINGEDGE'));
 
 		return self::genericlist($options, $id, $attribs, $selected, $id);
 	}
@@ -132,8 +131,8 @@ class ArsHelperSelect
 	{
 		$options = array(
 			JHTML::_('select.option','','---'),
-			JHTML::_('select.option',  '0', JText::_( 'No' ) ),
-			JHTML::_('select.option',  '1', JText::_( 'Yes' ) )
+			JHTML::_('select.option',  '0', JText::_( 'JNo' ) ),
+			JHTML::_('select.option',  '1', JText::_( 'JYes' ) )
 		);
 		return self::genericlist($options, $name, $attribs, $selected, $name);
 	}
@@ -154,9 +153,9 @@ class ArsHelperSelect
 	public static function published($selected = null, $id = 'enabled', $attribs = array())
 	{
 		$options = array();
-		$options[] = JHTML::_('select.option','','- '.JText::_('LBL_SELECT_STATE').' -');
-		$options[] = JHTML::_('select.option',0,JText::_('UNPUBLISHED'));
-		$options[] = JHTML::_('select.option',1,JText::_('PUBLISHED'));
+		$options[] = JHTML::_('select.option','','- '.JText::_('COM_ARS_COMMON_STATE_SELECT_LABEL').' -');
+		$options[] = JHTML::_('select.option',0,JText::_('JUNPUBLISHED'));
+		$options[] = JHTML::_('select.option',1,JText::_('JPUBLISHED'));
 
 		return self::genericlist($options, $id, $attribs, $selected, $id);
 	}
@@ -172,51 +171,11 @@ class ArsHelperSelect
 			}
 		}
 		
-		$filteringModel = JModel::getInstance('Filtering', 'ArsModel');
-		$hasAkeebaSubs = ArsModelFiltering::hasAkeebaSubs();
+		require_once JPATH_ADMINISTRATOR.'/components/com_ars/helpers/filtering.php';
+		$hasAkeebaSubs = ArsHelperFiltering::hasAkeebaSubs();
 		
 		if($hasAkeebaSubs) {
-			$groups = ArsModelFiltering::getAkeebaGroups();
-	
-			$html = '';
-	
-			if(count($groups))
-			{
-				$options = array();
-				foreach($groups as $group) {
-					$item = '<input type="checkbox" class="checkbox" name="'.$name.'[]" value="'.$group->id.'" ';
-					if(in_array($group->id, $selected)) $item .= ' checked="checked" ';
-					$item .= '/> '.$group->title;
-					$options[] = $item;
-				}
-				$html = implode("\n&nbsp;", $options);
-			}			
-		} else {
-			$html = '';
-		}
-
-		return $html;
-	}
-	
-	public static function ambragroups($selected = null, $name = 'groups')
-	{
-		if(!is_array($selected))
-		{
-			if(empty($selected)) {
-				$selected = array();
-			} else {
-				$selected = explode(',',$selected);
-			}
-		}
-		
-		$filteringModel = JModel::getInstance('Filtering', 'ArsModel');
-		$hasAmbra = ArsModelFiltering::hasAMBRA();
-		
-		if($hasAmbra) {
-			$db = JFactory::getDBO();
-			$sql = 'SELECT * FROM `#__ambrasubs_types` WHERE `published` = 1';
-			$db->setQuery($sql);
-			$groups = $db->loadObjectList();
+			$groups = ArsHelperFiltering::getAkeebaGroups();
 	
 			$html = '';
 	
@@ -240,16 +199,12 @@ class ArsHelperSelect
 
 	public static function categories($selected = null, $id = 'category', $attribs = array())
 	{
-		if(!class_exists('ArsModelCategories')) {
-			require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/categories.php';
-		}
-		$model = new ArsModelCategories(); // Do not use Singleton here!
-		$model->reset();
-		$model->setState('nobeunpub',1);
-		$items = $model->getItemList(true);
+		$items = FOFModel::getTmpInstance('Categories','ArsModel')
+			->nobeunpub(1)
+			->getItemList(true);
 
 		$options = array();
-		$options[] = JHTML::_('select.option',0,'- '.JText::_('LBL_CATEGORY_SELECT').' -');
+		$options[] = JHTML::_('select.option',0,'- '.JText::_('COM_ARS_COMMON_CATEGORY_SELECT_LABEL').' -');
 		if(count($items)) foreach($items as $item)
 		{
 			$options[] = JHTML::_('select.option',$item->id,$item->title);
@@ -260,21 +215,17 @@ class ArsHelperSelect
 	public static function maturities($selected = null, $id = 'maturity', $attribs = array())
 	{
 		$options = array();
-		$options[] = JHTML::_('select.option','','- '.JText::_('LBL_RELEASES_MATURITY_SELECT').' -');
+		$options[] = JHTML::_('select.option','','- '.JText::_('COM_ARS_RELEASES_MATURITY_SELECT').' -');
 		
 		$maturities = array('alpha','beta','rc','stable');
-		foreach($maturities as $maturity) $options[] = JHTML::_('select.option',$maturity,JText::_('LBL_RELEASES_MATURITY_'.strtoupper($maturity)));
+		foreach($maturities as $maturity) $options[] = JHTML::_('select.option',$maturity,JText::_('COM_ARS_RELEASES_MATURITY_'.strtoupper($maturity)));
 
 		return self::genericlist($options, $id, $attribs, $selected, $id);
 	}
 
 	public static function releases($selected = null, $id = 'release', $attribs = array(), $category_id = null)
 	{
-		if(!class_exists('ArsModelReleases')) {
-			require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/releases.php';
-		}
-		$model = new ArsModelReleases(); // Do not use Singleton here!
-		$model->reset();
+		$model = FOFModel::getTmpInstance('Releases','ArsModel');
 		if(!empty($category_id)) $model->setState('category', $category_id);
 		if(empty($category_id)) $model->setState('nobeunpub', 1);
 		$items = $model->getItemList(true);
@@ -306,7 +257,7 @@ class ArsHelperSelect
 				$options[] = JHTML::_('select.option',$item->id,$item->version);
 		}
 
-	   array_unshift($options, JHTML::_('select.option',0,'- '.JText::_('LBL_RELEASES_SELECT').' -'));
+	   array_unshift($options, JHTML::_('select.option',0,'- '.JText::_('COM_ARS_COMMON_SELECT_RELEASE_LABEL').' -'));
 
 		return self::genericlist($options, $id, $attribs, $selected, $id);
 	}
@@ -324,6 +275,8 @@ class ArsHelperSelect
 
 	public static function getFiles($selected = null, $release_id = 0, $item_id = 0, $id = 'type', $attribs = array())
 	{
+		require_once JPATH_ADMINISTRATOR.'/components/com_ars/helpers/amazons3.php';
+		
 		$options = array();
 		$options[] = JHTML::_('select.option','','- '.JText::_('LBL_ITEMS_FILENAME_SELECT').' -');
 
@@ -332,22 +285,12 @@ class ArsHelperSelect
 		if(!empty($release_id))
 		{
 			// Get the release
-			if(!class_exists('ArsModelReleases')) {
-				require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/releases.php';
-			}
-			$relModel = new ArsModelReleases(); // Do not use Singleton here!
-			$relModel->reset();
-			$relModel->setId((int)$release_id);
-			$release = $relModel->getItem();
+			$release = FOFModel::getTmpInstance('Releases','ArsModel')
+				->getItem((int)$release_id);
 			
 			// Get the category
-			if(!class_exists('ArsModelCategories')) {
-				require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/categories.php';
-			}
-			$catModel = new ArsModelCategories(); // Do not use Singleton here!
-			$catModel->reset();
-			$catModel->setId((int)$release->category_id);
-			$category = $catModel->getItem();
+			$category = FOFModel::getTmpInstance('Categories','ArsModel')
+				->getItem((int)$release->category_id);
 
 			// Get which directory to use
 			$directory = $category->directory;
@@ -379,16 +322,10 @@ class ArsHelperSelect
 		$files = array();
 		if(!empty($directory))
 		{
-			if(!class_exists('ArsModelItems')) {
-				require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/items.php';
-			}
-			$model = new ArsModelItems();
-			$model->reset();
-			$model->setState('category',$release->category_id);
-			$model->setState('release', false);
-			$model->setState('limitstart', 0);
-			$model->setState('limit', 0);
-			$items = $model->getItemList();
+			$items = FOFModel::getTmpInstance('Items','ArsModel')
+				->category($release->category_id)
+				->release('false')
+				->getItemList(true);
 
 			if(!empty($items))
 			{
@@ -461,9 +398,8 @@ class ArsHelperSelect
 
 	public static function updatestreams($selected = null, $id = 'updatestream', $attribs = array())
 	{
-		$model = JModel::getInstance('Updatestreams','ArsModel');
-		$model->reset();
-		$items = $model->getItemList(true);
+		$items = FOFModel::getTmpInstance('Updatestreams','ArsModel')
+			->getItemList(true);
 
 		$options = array();
 		$options[] = JHTML::_('select.option',0,'- '.JText::_('LBL_ITEMS_UPDATESTREAM_SELECT').' -');
@@ -510,14 +446,31 @@ class ArsHelperSelect
 		return self::genericlist($options, $id, $attribs, $selected, $id);
 	}
 	
+	public static function renderlanguage($langCode)
+	{
+		static $langs = array();
+		
+		if(empty($langs)) {
+			jimport('joomla.language.helper');
+			$languages = JLanguageHelper::getLanguages('lang_code');
+			
+			$langs['*'] = JText::_('JALL_LANGUAGE');
+			if(!empty($languages)) foreach($languages as $key => $lang) {
+				$langs[$key] = $lang->title;
+			}
+		}
+		
+		if(array_key_exists($langCode, $langs)) {
+			return $langs[$langCode];
+		} else {
+			return $langCode;
+		}
+	}
+	
 	public static function vgroups($selected = null, $id = 'vgroup', $attribs = array() )
 	{
-		if(!class_exists('ArsModelVgroups')) {
-			require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/vgroups.php';
-		}
-		$model = new ArsModelVgroups(); // Do not use Singleton here!
-		$model->reset();
-		$items = $model->getItemList(true);
+		$items = FOFModel::getTmpInstance('Vgroups','ArsModel')
+			->getItemList(true);
 
 		$options = array();
 		$options[] = JHTML::_('select.option',0,'- '.JText::_('LBL_VGROUP_SELECT').' -');
@@ -542,14 +495,9 @@ class ArsHelperSelect
 	{
 		static $items = array();
 		
-		if(!class_exists('ArsModelEnvironments')) {
-			require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/environments.php';
-		}
-		
-		if (! isset( $items[$id] ) ) {
-			$model = new ArsModelEnvironments(); // Do not use Singleton here!
-			$model->setId( $id );
-			$items[$id] = $model->getItem();
+		if (!isset($items[$id])) {
+			$items[$id] = clone FOFModel::getTmpInstance('Environments','ArsModel')
+				->getItem($id);
 		}
 		
 		$base_folder = rtrim(JURI::base(), '/');
@@ -579,12 +527,8 @@ class ArsHelperSelect
 	
 	public static function environments( $selected = null, $id = 'environments', $attribs = array() )
 	{
-		if(!class_exists('ArsModelEnvironments')) {
-			require_once JPATH_COMPONENT_ADMINISTRATOR.'/models/environments.php';
-		}
-		$model = new ArsModelEnvironments(); // Do not use Singleton here!
-		$model->reset();
-		$items = $model->getItemList(true);
+		$items = FOFModel::getTmpInstance('Environments','ArsModel')
+				->getItemList(true);
 		
 		$options	= array();
 		$options[]	= JHTML::_('select.option','','- '.JText::_( 'LBL_ITEMS_ENVIRONMENT_SELECT' ) . ' -');
@@ -597,5 +541,26 @@ class ArsHelperSelect
 		
 		$attribs['multiple'] = 'yes';
 		return self::genericlist($options, $id.'[]', $attribs, $selected, $id);
+	}
+	
+	public static function getVisualGroupName($vgroup_id)
+	{
+		$vgroups = null;
+		
+		if(is_null($vgroups)) {
+			$items = FOFModel::getTmpInstance('Vgroups','ArsModel')
+				->published(1)
+				->getItemList(true);
+			
+			if(count($items)) foreach($items as $item) {
+				$vgroups[$item->id] = $item->title;
+			}
+		}
+		
+		if(array_key_exists($vgroup_id, $vgroups)) {
+			return $vgroups[$vgroup_id];
+		} else {
+			return '';
+		}
 	}
 }

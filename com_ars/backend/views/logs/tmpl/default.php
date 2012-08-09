@@ -3,28 +3,30 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
 jimport('joomla.utilities.date');
-$model = $this->getModel();
+
+$this->loadHelper('select');
+
+FOFTemplateUtils::addCSS('media://com_ars/css/backend.css');
 ?>
 <form name="adminForm" id="adminForm" action="index.php" method="post">
 	<input type="hidden" name="option" id="option" value="com_ars" />
 	<input type="hidden" name="view" id="view" value="logs" />
-	<input type="hidden" name="task" id="task" value="display" />
+	<input type="hidden" name="task" id="task" value="browse" />
 	<input type="hidden" name="boxchecked" id="boxchecked" value="0" />
 	<input type="hidden" name="hidemainmenu" id="hidemainmenu" value="0" />
 	<input type="hidden" name="filter_order" id="filter_order" value="<?php echo $this->lists->order ?>" />
 	<input type="hidden" name="filter_order_Dir" id="filter_order_Dir" value="<?php echo $this->lists->order_Dir ?>" />
-	<input type="hidden" name="<?php echo JUtility::getToken();?>" value="1" />
+	<input type="hidden" name="<?php echo JFactory::getSession()->getToken();?>" value="1" />
 <table class="adminlist">
 	<thead>
 		<tr>
 			<th width="20">
-				<input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo count( $this->items ) + 1; ?>);" />
+				<input type="checkbox" name="toggle" value="" onclick="Joomla.checkAll(this);" />
 			</th>
 			<th>
 				<?php echo JHTML::_('grid.sort', 'LBL_LOGS_ITEM', 'item', $this->lists->order_Dir, $this->lists->order); ?>
@@ -51,59 +53,59 @@ $model = $this->getModel();
 		<tr>
 			<td></td>
 			<td>
-				<?php echo ArsHelperSelect::categories($this->lists->fltCategory, 'category', array('onchange'=>'this.form.submit();')) ?>
+				<?php echo ArsHelperSelect::categories($this->getModel()->getState('category'), 'category', array('onchange'=>'this.form.submit();')) ?>
 				<br/>
-				<?php echo ArsHelperSelect::releases($this->lists->fltVersion, 'version', array('onchange'=>'this.form.submit();'), $this->lists->fltCategory) ?>
+				<?php echo ArsHelperSelect::releases($this->getModel()->getState('version'), 'version', array('onchange'=>'this.form.submit();'), $this->getModel()->getState('category')) ?>
 				<br/>
 				<input type="text" name="itemtext" id="itemtext"
-					value="<?php echo $this->escape($this->lists->fltItemText);?>"
+					value="<?php echo $this->escape($this->getModel()->getState('itemtext'));?>"
 					class="text_area" onchange="document.adminForm.submit();" />
 				<button onclick="this.form.submit();">
-					<?php echo JText::_('Go'); ?>
+					<?php echo JText::_('JSEARCH_FILTER_SUBMIT'); ?>
 				</button>
 				<button onclick="document.adminForm.itemtext.value='';this.form.submit();">
-					<?php echo JText::_('Reset'); ?>
+					<?php echo JText::_('JSEARCH_RESET'); ?>
 				</button>
 			</td>
 			<td>
 				<input type="text" name="usertext" id="usertext"
-					value="<?php echo $this->escape($this->lists->fltUserText);?>"
+					value="<?php echo $this->escape($this->getModel()->getState('usertext'));?>"
 					class="text_area" onchange="document.adminForm.submit();" />
 				<button onclick="this.form.submit();">
-					<?php echo JText::_('Go'); ?>
+					<?php echo JText::_('JSEARCH_FILTER_SUBMIT'); ?>
 				</button>
 				<button onclick="document.adminForm.usertext.value='';this.form.submit();">
-					<?php echo JText::_('Reset'); ?>
+					<?php echo JText::_('JSEARCH_RESET'); ?>
 				</button>
 			</td>
 			<td>&nbsp;</td>
 			<td>
 				<input type="text" name="referer" id="referer"
-					value="<?php echo $this->escape($this->lists->fltReferer);?>"
+					value="<?php echo $this->escape($this->getModel()->getState('referer'));?>"
 					class="text_area" onchange="document.adminForm.submit();" />
 				<button onclick="this.form.submit();">
-					<?php echo JText::_('Go'); ?>
+					<?php echo JText::_('JSEARCH_FILTER_SUBMIT'); ?>
 				</button>
 				<button onclick="document.adminForm.referer.value='';this.form.submit();">
-					<?php echo JText::_('Reset'); ?>
+					<?php echo JText::_('JSEARCH_RESET'); ?>
 				</button>
 			</td>
 			<td>
 				<input type="text" name="ip" id="ip"
-					value="<?php echo $this->escape($this->lists->fltIP);?>"
+					value="<?php echo $this->escape($this->getModel()->getState('ip'));?>"
 					class="text_area" onchange="document.adminForm.submit();" />
 				<button onclick="this.form.submit();">
-					<?php echo JText::_('Go'); ?>
+					<?php echo JText::_('JSEARCH_FILTER_SUBMIT'); ?>
 				</button>
 				<button onclick="document.adminForm.ip.value='';this.form.submit();">
-					<?php echo JText::_('Reset'); ?>
+					<?php echo JText::_('JSEARCH_RESET'); ?>
 				</button>
 			</td>
 			<td>
-				<?php echo ArsHelperSelect::countries($this->lists->fltCountry, 'country', array('onchange'=>'this.form.submit();','style'=>'width: 80px')) ?>
+				<?php echo ArsHelperSelect::countries($this->getModel()->getState('country'), 'country', array('onchange'=>'this.form.submit();','style'=>'width: 80px')) ?>
 			</td>
 			<td>
-				<?php echo ArsHelperSelect::booleanlist('authorized', array('onchange'=>'this.form.submit();'), $this->lists->fltAuthorized) ?>
+				<?php echo ArsHelperSelect::booleanlist('authorized', array('onchange'=>'this.form.submit();'), $this->getModel()->getState('authorized')) ?>
 			</td>
 		</tr>
 	</thead>
@@ -156,11 +158,7 @@ $model = $this->getModel();
 				<?php echo $this->escape(ArsHelperSelect::decodeCountry($item->country)) ?>
 			</td>
 			<td>
-				<?php if(version_compare(JVERSION,'1.6.0','gt')): ?>
 				<?php echo $item->authorized ? JHTML::_('image','admin/tick.png', '', array('border' => 0), true) : JHTML::_('image','admin/publish_x.png', '', array('border' => 0), true); ?>
-				<?php else: ?>
-				<img src="<?php echo JURI::base() ?>images/<?php echo $item->authorized ? 'tick.png' : 'publish_x.png'; ?>" border="0" alt="" />
-				<?php endif; ?>
 			</td>
 		</tr>
 	<?php
@@ -169,7 +167,7 @@ $model = $this->getModel();
 	?>
 	<?php else : ?>
 		<tr>
-			<td colspan="8" align="center"><?php echo JText::_('LBL_ARS_NOITEMS') ?></td>
+			<td colspan="8" align="center"><?php echo JText::_('COM_ARS_COMMON_NOITEMS_LABEL') ?></td>
 		</tr>
 	<?php endif ?>
 	</tbody>

@@ -3,10 +3,13 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
+
+if(!$this->published) {
+	die();
+}
 
 $rootURL = rtrim(JURI::base(),'/');
 $subpathURL = JURI::base(true);
@@ -117,7 +120,13 @@ foreach($this->items as $item):
 		<tags>
 			<tag><?php echo $item->maturity ?></tag>
 		</tags>
-		<maintainer><?php echo JFactory::getConfig()->getValue('config.sitename'); ?></maintainer>
+		<maintainer><?php
+		if(version_compare(JVERSION, '3.0', 'ge')) {
+			echo JFactory::getConfig()->get('sitename');
+		} else {
+			echo JFactory::getConfig()->getValue('config.sitename');
+		}
+		?></maintainer>
 		<maintainerurl><?php echo JURI::base();?></maintainerurl>
 		<section>Updates</section>
 		<targetplatform name="<?php echo $platformName?>" version="<?php echo $platformVersion?>" />

@@ -3,11 +3,9 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-// Protect from unauthorized access
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
 class AKRouter
 {
@@ -54,6 +52,10 @@ class AKRouter
 	static function doesItAddSuffix()
 	{
 		$config = JFactory::getConfig();
-		self::$addsSuffix = $config->getValue('config.sef_suffix',0) == 1;
+		if(version_compare(JVERSION, '3.0', 'ge')) {
+			self::$addsSuffix = $config->get('sef_suffix',0) == 1;
+		} else {
+			self::$addsSuffix = $config->getValue('config.sef_suffix',0) == 1;
+		}
 	}
 }

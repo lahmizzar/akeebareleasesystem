@@ -3,22 +3,27 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
 jimport('joomla.application.component.model');
 
-class ArsModelBleedingedge extends JModel
+class ArsModelBleedingedge extends FOFModel
 {
 	private $category_id;
 	private $category;
 	private $folder = null;
+	
+	public function __construct($config = array()) {
+		parent::__construct($config);
+		
+		require_once JPATH_ADMINISTRATOR.'/components/com_ars/helpers/amazons3.php';
+	}
 
 	public function setCategory($cat)
 	{
-		if($cat instanceof TableCategories)
+		if($cat instanceof ArsTableCategory)
 		{
 			$this->category = $cat;
 			$this->category_id = $cat->id;
@@ -26,9 +31,8 @@ class ArsModelBleedingedge extends JModel
 		elseif( is_numeric($cat) )
 		{
 			$this->category_id = (int)$cat;
-			$model = JModel::getInstance('Categories','ArsModel');
-			$model->setId( $this->category_id );
-			$this->category = $model->getItem();
+			$this->category = FOFModel::getTmpInstance('Categories','ArsModel')
+				->getItem($this->category_id);
 		}
 
 		// Store folder
@@ -75,14 +79,13 @@ class ArsModelBleedingedge extends JModel
 			$this->setCategory($a_category);
 		}
 
-		$model = JModel::getInstance('Releases','ArsModel');
-		$model->reset();
-		$model->setState('category', $this->category->id);
-		$model->setState('order','created');
-		$model->setState('dir','desc');
-		$model->setState('limitstart',0);
-		$model->setState('limit',0);
-		$allReleases = $model->getItemList();
+		$allReleases = FOFModel::getTmpInstance('Releases','ArsModel')
+			->category($this->category->id)
+			->order('created')
+			->dir('desc')
+			->limitstart(0)
+			->limit(0)
+			->getItemList(true);
 
 		$potentialPrefix = substr($this->category->directory, 0, 5);
 		$potentialPrefix = strtolower($potentialPrefix);
@@ -114,8 +117,10 @@ class ArsModelBleedingedge extends JModel
 				
 				if(!$exists) {
 					$release->published = 0;
-					$table = JTable::getInstance('Releases','Table');
-					$table->save($release);
+					
+					$tmp = FOFModel::getTmpInstance('Releases','ArsModel')
+						->getTable()
+						->save($release);
 				} else {
 					$this->checkFiles($release);
 				}
@@ -214,8 +219,6 @@ class ArsModelBleedingedge extends JModel
 					$this_changelog = '';
 				}
 
-				$table = JTable::getInstance('Releases','Table');
-				$table->reset();
 				jimport('joomla.utilities.date');
 				$jNow = new JDate();
 				$data = array(
@@ -229,7 +232,7 @@ class ArsModelBleedingedge extends JModel
 					'groups'			=> $this->category->groups,
 					'access'			=> $this->category->access,
 					'published'			=> 1,
-					'created'			=> $jNow->toMySQL(),
+					'created'			=> $jNow->toSql(),
 				);
 				
 				// Before saving the release, call the onNewARSBleedingEdgeRelease()
@@ -261,6 +264,8 @@ class ArsModelBleedingedge extends JModel
 					}
 				}
 				// -- Create the BE release
+				$table = FOFModel::getTmpInstance('Releases','ArsModel')
+						->getTable();
 				$table->save($data,'category_id');
 				$this->checkFiles($table);
 			}
@@ -311,18 +316,17 @@ class ArsModelBleedingedge extends JModel
 				}
 				$notes .= '</p>';
 				$release->notes = $notes;
-				$table = JTable::getInstance('Releases','Table');
-				$table->reset();
-				$table->save($release,'category_id');
+
+				$table = FOFModel::getTmpInstance('Releases','ArsModel')
+						->getTable()
+						->save($release,'category_id');
 			}
 		}
 
-		$model = JModel::getInstance('Items','ArsModel');
-		$model->reset();
-		$model->setState('release', $release->id);
-		$model->setState('limitstart',0);
-		$model->setState('limit',0);
-		$allItems = $model->getItemList();
+		$allItems = FOFModel::getTmpInstance('Items','ArsModel')
+			->release($release->id)
+			->limitstart(0)
+			->getItemList(true);
 
 		$known_items = array();
 		if($useS3) {
@@ -341,21 +345,22 @@ class ArsModelBleedingedge extends JModel
 		} else {
 			$files = JFolder::files($folder);
 		}
+
 		if(!empty($allItems)) foreach($allItems as $item)
 		{
 			$known_items[] = basename($item->filename);
 			//if(!JFile::exists($this->folder.'/'.$item->filename) && !JFile::exists(JPATH_ROOT.'/'.$this->folder.'/'.$item->filename))
 			if($item->published && !in_array(basename($item->filename), $files)) {
-				$table = JTable::getInstance('Items','Table');
+				$table = FOFModel::getTmpInstance('Items','ArsModel')->getTable();
 				$item->published = 0;
 				$table->save($item);
 			} if(!$item->published && in_array(basename($item->filename), $files)) {
-				$table = JTable::getInstance('Items','Table');
+				$table = FOFModel::getTmpInstance('Items','ArsModel')->getTable();
 				$item->published = 1;
 				$table->save($item);
 			}
 		}
-		
+
 		if(!empty($files)) foreach($files as $file)
 		{
 			if( basename($file) == 'CHANGELOG' ) continue;
@@ -365,6 +370,7 @@ class ArsModelBleedingedge extends JModel
 			jimport('joomla.utilities.date');
 			$jNow = new JDate();
 			$data = array(
+				'id'				=> 0,
 				'release_id'		=> $release->id,
 				'description'		=> '',
 				'type'				=> 'file',
@@ -373,7 +379,8 @@ class ArsModelBleedingedge extends JModel
 				'groups'			=> $release->groups,
 				'hits'				=> '0',
 				'published'			=> '1',
-				'created'			=> $jNow->toMySQL(),
+				'created'			=> $jNow->toSql(),
+				'access'			=> '1'
 			);
 			
 			// Before saving the item, call the onNewARSBleedingEdgeItem()
@@ -406,7 +413,8 @@ class ArsModelBleedingedge extends JModel
 				if($data['ignore']) continue;
 			}
 			
-			$table = JTable::getInstance('Items','Table');
+			$table = clone FOFModel::getTmpInstance('Items','ArsModel')->getTable();
+			$table->reset();
 			$result = $table->save($data);
 		}
 

@@ -3,32 +3,26 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-require_once(dirname(__FILE__).'/default.php');
-
-class ArsControllerUpdate extends ArsControllerDefault
+class ArsControllerUpdate extends FOFController
 {
-	function  __construct($config = array()) {
-		parent::__construct($config);
-
+	public function execute($task) {
 		$document = JFactory::getDocument();
 		$viewType	= $document->getType();
-		$task = JRequest::getCmd('task','');
-		$layout = JRequest::getCmd('layout','');
-		$id = JRequest::getInt('id',null);
+		$task = FOFInput::getCmd('task', '', $this->input);
+		$layout = FOFInput::getCmd('layout', '', $this->input);
+		$id = FOFInput::getInt('id', null, $this->input);
 
 		// Check for menu items bearing layout instead of task
-		if(empty($task) && !empty($layout))
-		{
+		if((empty($task) || ($task == 'read')) && !empty($layout)) {
 			$task = $layout;
 		}
 		
 		// Check for default task
-		if(empty($task)) {
+		if(empty($task) || ($task == 'read')) {
 			if($viewType == 'xml') {
 				$task = 'all';
 			} elseif( ($viewType == 'ini') && empty($id)) {
@@ -38,12 +32,10 @@ class ArsControllerUpdate extends ArsControllerDefault
 			} else {
 				$task = 'ini';
 				$viewType = 'ini';
-				//return JError::raiseError(500, JText::_('ARS_ERR_INVALIDOP'));
 			}
 		}
 		
-		switch($task)
-		{
+		switch($task) {
 			case 'ini':
 				$viewType = 'ini';
 				break;
@@ -53,34 +45,29 @@ class ArsControllerUpdate extends ArsControllerDefault
 				break;
 		}
 		
-		$this->viewType = $viewType;
-
-		switch($viewType)
-		{
+		switch($viewType) {
 			case 'xml':
-				switch($task)
-				{
+				switch($task) {
 					case 'all':
-						$this->_task = 'all';
+						$task = 'all';
 						break;
 
 					case 'category':
-						$this->_task = 'category';
+						$task = 'category';
 						break;
 
 					case 'stream':
-						$this->_task = 'stream';
+						$task = 'stream';
 						break;
 				}
 				break;
 
 			case 'ini':
-				$this->_task = 'ini';
+				$task = 'ini';
 				break;
 		}
 
-		JRequest::setVar('task', $this->_task);
-		$this->viewLayout = $this->_task;
+		parent::execute($task);
 	}
 
 	public function all()
@@ -90,9 +77,8 @@ class ArsControllerUpdate extends ArsControllerDefault
 
 	public function category()
 	{
-		$cat = JRequest::getCmd('id','');
-		if(empty($cat))
-		{
+		$cat = FOFInput::getCmd('id', '', $this->input);
+		if(empty($cat)) {
 			// Do we have a menu item parameter?
 			$app = JFactory::getApplication();
 			$params = $app->getPageParameters('com_ars');
@@ -102,15 +88,14 @@ class ArsControllerUpdate extends ArsControllerDefault
 			return JError::raiseError(500, JText::_('ARS_ERR_NOUPDATESOURCE'));
 		}
 		$model = $this->getThisModel();
-		$model->getCategoryItems($cat);
+		$x = $model->getCategoryItems($cat);
 		$this->display(true);
 	}
 
 	public function stream()
 	{
-		$id = JRequest::getInt('id',0);
-		if($id == 0)
-		{
+		$id = FOFInput::getInt('id', 0, $this->input);
+		if($id == 0) {
 			// Do we have a menu item parameter?
 			$app = JFactory::getApplication();
 			$params = $app->getPageParameters('com_ars');
@@ -118,14 +103,15 @@ class ArsControllerUpdate extends ArsControllerDefault
 		}
 		$model = $this->getThisModel();
 		$model->getItems($id);
+		$model->getPublished($id);
+
 		$this->display(true);
 	}
 
 	public function ini()
 	{
-		$id = JRequest::getInt('id',0);
-		if($id == 0)
-		{
+		$id = FOFInput::getInt('id', 0, $this->input);
+		if($id == 0) {
 			// Do we have a menu item parameter?
 			$app = JFactory::getApplication();
 			$params = $app->getPageParameters('com_ars');
@@ -133,7 +119,8 @@ class ArsControllerUpdate extends ArsControllerDefault
 		}
 		$model = $this->getThisModel();
 		$model->getItems($id);
-		
+		$model->getPublished($id);
+
 		$this->display(true);
 	}
 }

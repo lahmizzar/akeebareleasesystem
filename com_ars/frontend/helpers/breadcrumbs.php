@@ -3,10 +3,9 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted access');
+defined('_JEXEC') or die();
 
 class ArsHelperBreadcrumbs
 {
@@ -27,19 +26,23 @@ class ArsHelperBreadcrumbs
 			$all_items = $menus->getItems('type', 'component', false);
 			foreach($all_items as $item)
 			{
+				$qOption = array_key_exists('option', $item->query) ? $item->query['option'] : '';
+				$qView = array_key_exists('view', $item->query) ? $item->query['view'] : '';
+				$qLayout = array_key_exists('layout', $item->query) ? $item->query['layout'] : '';
+				
 				if( (!property_exists($item, 'published') || ($item->published))
-					&& ($item->query['option'] == 'com_ars')
-					&& ($item->query['view'] == 'browse')
+					&& ($qOption == 'com_ars')
+					&& ($qView == 'browse')
 				)
 				{
 					if( array_key_exists('layout', $item->query) && ($item->query['layout'] == 'repository') && empty($Itemid) )
 					{
 						$Itemid = $item->id;
-						$rootName = version_compare(JVERSION, '1.6.0', 'ge') ? $item->title : $item->name;
+						$rootName = $item->title;
 						$rootURI = JRoute::_($item->link.'&Itemid='.$Itemid);
 					} elseif( array_key_exists('layout', $item->query) && $item->query['layout'] == $repoType ) {
 						$Itemid = $item->id;
-						$rootName = version_compare(JVERSION, '1.6.0', 'ge') ? $item->title : $item->name;
+						$rootName = $item->title;
 						$rootURI = JRoute::_($item->link.'&Itemid='.$Itemid);
 					}
 				}
@@ -61,7 +64,6 @@ class ArsHelperBreadcrumbs
 			$pathway = $app->getPathway();
 
 			// Preferably find a menu item linking to a specific repository type
-			$isJoomla16 = version_compare(JVERSION,'1.6.0','ge');
 			$Itemid = null;
 			$all_items = $menus->getItems('type', 'component', false);
 			if(empty($all_items)) return;
@@ -72,10 +74,10 @@ class ArsHelperBreadcrumbs
 					&& ($item->query['view'] == 'category')
 				)
 				{
-					$params = is_object($item->params) ? $item->params : new JParameter($item->params);
+					$params = is_object($item->params) ? $item->params : new JRegistry($item->params);
 					if( $params->get('catid',0) == $id ) {
 						$Itemid = $item->id;
-						$rootName = version_compare(JVERSION, '1.6.0', 'ge') ? $item->title : $item->name;
+						$rootName = $item->title;
 						$rootURI = JRoute::_($item->link.'&Itemid='.$Itemid);
 					}
 				}
@@ -109,15 +111,19 @@ class ArsHelperBreadcrumbs
 			$all_items = $menus->getItems('type', 'component', false);
 			foreach($all_items as $item)
 			{
+				$qOption = array_key_exists('option', $item->query) ? $item->query['option'] : '';
+				$qView = array_key_exists('view', $item->query) ? $item->query['view'] : '';
+				$qLayout = array_key_exists('layout', $item->query) ? $item->query['layout'] : '';
+				
 				if( (!property_exists($item, 'published') || ($item->published))
-					&& ($item->query['option'] == 'com_ars')
-					&& ($item->query['view'] == 'release')
+					&& ($qOption == 'com_ars')
+					&& ($qView == 'release')
 				)
 				{
-					$params = is_object($item->params) ? $item->params : new JParameter($item->params);
+					$params = is_object($item->params) ? $item->params : new JRegistry($item->params);
 					if( $params->get('relid',0) == $id ) {
 						$Itemid = $item->id;
-						$rootName = version_compare(JVERSION, '1.6.0', 'ge') ? $item->title : $item->name;
+						$rootName = $item->title;
 						$rootURI = JRoute::_($item->link.'&Itemid='.$Itemid);
 					}
 				}

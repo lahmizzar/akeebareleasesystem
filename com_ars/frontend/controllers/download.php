@@ -3,26 +3,21 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-require_once(dirname(__FILE__).'/default.php');
-
-class ArsControllerDownload extends ArsControllerDefault
+class ArsControllerDownload extends FOFController
 {
-	function  __construct($config = array()) {
-		parent::__construct($config);
-		$this->registerDefaultTask('download');
-		$this->registerTask( 'display', 'download' );
-
-		JRequest::setVar('layout',null);
+	public function execute($task) {
+		$task = 'download';
+		
+		parent::execute($task);
 	}
-
-	function download()
+	
+	public function download($cachable = false, $urlparams = false)
 	{
-		$id = JRequest::getInt('id',null);
+		$id = FOFInput::getInt('id', null, $this->input);
 
 		// Get the page parameters
 		$app = JFactory::getApplication();
@@ -31,27 +26,13 @@ class ArsControllerDownload extends ArsControllerDefault
 		// Get the model
 		$model = $this->getThisModel();
 
-		// Anti-leech protection (removed feature)
-		/*
-		$component = JComponentHelper::getComponent( 'com_ars' );
-		$params = ($component->params instanceof JRegistry) ? $component->params : new JParameter($component->params);
-		$antileech = $params->get('antileech',1);
-		if($antileech == 1)
-		{
-			$model->antiLeech();
-		}
-		*/
-
 		// Get the log table
-		$log = JTable::getInstance('Logs','Table');
+		$log = FOFModel::getTmpInstance('Logs','ArsModel')->getTable();
 
 		// Get the item lists
-		if($id > 0)
-		{
+		if($id > 0) {
 			$item = $model->getItem($id);
-		}
-		else
-		{
+		} else {
 			$item = null;
 		}
 
@@ -65,6 +46,7 @@ class ArsControllerDownload extends ArsControllerDefault
 		$log->save(array('authorized' => 1));
 
 		$model->doDownload();
-		die();
+		
+		// No need to return anything; doDownload() calls the exit() method of the application object
 	}
 }

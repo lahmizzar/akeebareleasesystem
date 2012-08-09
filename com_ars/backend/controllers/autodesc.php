@@ -3,50 +3,42 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
 // Protect from unauthorized access
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-require_once JPATH_COMPONENT_ADMINISTRATOR.'/controllers/default.php';
-
-class ArsControllerAutodesc extends ArsControllerDefault
+class ArsControllerAutodesc extends FOFController
 {
 	public function copy()
 	{
-		if(version_compare(JVERSION, '1.6.0', 'ge')) {
-			$user = JFactory::getUser();
-			if (!$user->authorise('core.create', 'com_ars')) {
-				return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
-			}
+		$user = JFactory::getUser();
+		if (!$user->authorise('core.create', 'com_ars')) {
+			return JError::raiseError(403, JText::_('JERROR_ALERTNOAUTHOR'));
 		}
 		
 		$model = $this->getThisModel();
 		$model->setIDsFromRequest();
 		$ids = $model->getIds();
-		if(!empty($ids))
-		{
-			foreach($ids as $id)
+		
+		$status = true;
+		if(!empty($ids)) foreach($ids as $id) {
+			$model->setId($id);
+			$item = $model->getItem();
+			
+			if($item->id == $id)
 			{
-				$model->setId($id);
-				$item = $model->getItem();
-				$item->title = JText::_('Copy of').' '.$item->title;
+				$item->title = 'Copy of '.$item->title;
 				$item->id = 0;
-				$status = $model->save($item);
-
-				if(!$status) break;
 			}
-		}
-		else
-		{
-			$status = true;
+			$status = $model->save($item);
+			if(!$status) break;
 		}
 
 		// redirect
-		$option = JRequest::getCmd('option');
-		$view = JRequest::getCmd('view');
-		$url = 'index.php?option='.$option.'&view='.$view;
+		$option = FOFInput::getCmd('option','com_ars',$this->input);
+		$view = FOFInput::getCmd('view','autodescs',$this->input);
+		$url = 'index.php?option='.$option.'&view='.$view.'&task=browse';
 		if(!$status)
 		{
 			$this->setRedirect($url, $model->getError(), 'error');

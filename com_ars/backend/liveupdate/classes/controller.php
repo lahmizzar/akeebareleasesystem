@@ -9,13 +9,19 @@ defined('_JEXEC') or die();
 
 jimport('joomla.application.component.controller');
 
+if(!class_exists('JoomlaSucksController')) {
+	if(interface_exists('JController')) {
+		abstract class JoomlaSucksController extends JControllerLegacy {}
+	} else {
+		class JoomlaSucksController extends JController {}
+	}
+}
+
 /**
  * The Live Update MVC controller
  */
-class LiveUpdateController extends JController
+class LiveUpdateController extends JoomlaSucksController
 {
-	private $jversion = '15';
-
 	/**
 	 * Object contructor 
 	 * @param array $config
@@ -26,18 +32,6 @@ class LiveUpdateController extends JController
 	{
 		parent::__construct();
 
-		// Do we have Joomla! 1.6?
-		if( version_compare( JVERSION, '1.6.0', 'ge' ) ) {
-			$this->jversion = '16';
-		}
-		
-		$basePath = dirname(__FILE__);
-		if($this->jversion == '15') {
-			$this->_basePath = $basePath;
-		} else {
-			$this->basePath = $basePath;
-		}
-		
 		$this->registerDefaultTask('overview');
 	}
 	
@@ -54,6 +48,15 @@ class LiveUpdateController extends JController
 	 */
 	public function startupdate()
 	{
+		$updateInfo = LiveUpdate::getUpdateInformation();
+		if($updateInfo->stability != 'stable') {
+			$skipNag = JRequest::getBool('skipnag', false);
+			if(!$skipNag) {
+				$this->setRedirect('index.php?option='.JRequest::getCmd('option','').'&view='.JRequest::getCmd('view','liveupdate').'&task=nagscreen');
+				$this->redirect();
+			}
+		}
+		
 		$ftp = $this->setCredentialsFromRequest('ftp');
 		if($ftp === true) {
 			// The user needs to supply the FTP credentials
@@ -146,10 +149,8 @@ class LiveUpdateController extends JController
 			$this->redirect();
 		} else {
 			// Installation successful. Show the installation message.
-			if(version_compare(JVERSION,'1.6.0','ge')) {
-				$cache = JFactory::getCache('mod_menu');
-				$cache->clean();				
-			}
+			$cache = JFactory::getCache('mod_menu');
+			$cache->clean();				
 			
 			$this->display();
 		}
@@ -172,7 +173,7 @@ class LiveUpdateController extends JController
 	 * Displays the current view
 	 * @param bool $cachable Ignored!
 	 */
-	public final function display($cachable = false)
+	public final function display($cachable = false, $urlparams = false)
 	{
 		$viewLayout	= JRequest::getCmd( 'layout', 'default' );
 
@@ -200,7 +201,7 @@ class LiveUpdateController extends JController
 		
 		if(is_null($view))
 		{
-			$basePath = ($this->jversion == '15') ? $this->_basePath : $this->basePath;
+			$basePath = $this->basePath;
 			$tPath = dirname(__FILE__).'/tmpl';
 			
 			require_once('view.php');
@@ -218,7 +219,7 @@ class LiveUpdateController extends JController
 		{
 			require_once('model.php');
 			$model = new LiveUpdateModel();
-			$task = ($this->jversion == '15') ? $this->_task : $this->task;
+			$task = $this->task;
 			
 			$model->setState( 'task', $task );
 			
@@ -226,7 +227,8 @@ class LiveUpdateController extends JController
 			$menu	= $app->getMenu();
 			if (is_object( $menu ))
 			{
-				if ($item = $menu->getActive())
+				$item = $menu->getActive();
+				if ($item)
 				{
 					$params	= $menu->getParams($item->id);
 					// Set Default State Data

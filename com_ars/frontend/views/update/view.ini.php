@@ -3,24 +3,28 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-jimport('joomla.application.component.view');
-
-class ArsViewUpdate extends JView
+class ArsViewUpdate extends FOFViewHtml
 {
-	function display($tpl = null) {
+	protected function onIni($tpl = null) {
+		$this->loadHelper('router');
+		
 		$task = JRequest::getCmd('task', '');
-		$document = JFactory::getDocument();
-		$document->setMimeEncoding('text/plain');
+		
+		$model 		= $this->getModel();
+		$items 		= $model->items;
+		$published  = $model->published;
+		$this->assign('items', $items);
+		$this->assign('published', $published);
+		
+		$this->setLayout($this->getModel()->getState('task'));
+		
+		// Set the content type to text/plain
+		@header('Content-type: text/plain');
 
-		$model = $this->getModel();
-		$items = $model->items;
-		$this->assign('items',			$items);
-
-		parent::display();
+		return true;
 	}
 }

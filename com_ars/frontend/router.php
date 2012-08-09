@@ -9,13 +9,7 @@
 // Protect from unauthorized access
 defined('_JEXEC') or die('Restricted Access');
 
-jimport('joomla.application.component.model');
-JModel::addTablePath(JPATH_ADMINISTRATOR.'/components/com_ars/tables');
-require_once JPATH_ADMINISTRATOR.'/components/com_ars/tables/base.php';
-require_once JPATH_ADMINISTRATOR.'/components/com_ars/models/base.php';
-require_once JPATH_ADMINISTRATOR.'/components/com_ars/models/categories.php';
-require_once JPATH_ADMINISTRATOR.'/components/com_ars/models/releases.php';
-require_once JPATH_ADMINISTRATOR.'/components/com_ars/models/items.php';
+include_once JPATH_LIBRARIES.'/fof/include.php';
 
 function arsBuildRoute(&$query)
 {
@@ -125,9 +119,8 @@ function arsBuildRouteHtml(&$query)
 
 
 			// Get category alias
-			$catModel = new ArsModelCategories();
-			$catModel->setId($id);
-			$catalias = $catModel->getItem()->alias;
+			$catModel = FOFModel::getTmpInstance('Categories','ArsModel');
+			$catalias = $catModel->getItem($id)->alias;
 
 			if(empty($Itemid))
 			{
@@ -173,14 +166,12 @@ function arsBuildRouteHtml(&$query)
 
 		case 'release':
 			// Get release info
-			$relModel = new ArsModelReleases();
-			$relModel->setId($id);
-			$release = $relModel->getItem();
+			$relModel = FOFModel::getTmpInstance('Releases','ArsModel');
+			$release = $relModel->getItem($id);
 
 			// Get category alias
-			$catModel = new ArsModelCategories();
-			$catModel->setId($release->category_id);
-			$catalias = $catModel->getItem()->alias;
+			$catModel = FOFModel::getTmpInstance('Categories','ArsModel');
+			$catalias = $catModel->getItem($release->category_id)->alias;
 
 			// Do we have a "category" menu?
 			if($Itemid)
@@ -274,6 +265,8 @@ function arsBuildRouteFeed(&$query)
 	switch($view)
 	{
 		case 'browse':
+		case 'categories':
+			$view = 'browse';
 			$query['Itemid'] = $Itemid;
 			break;
 
@@ -287,7 +280,7 @@ function arsBuildRouteFeed(&$query)
 				}
 				elseif( (isset($menu->query['view']) ? $menu->query['view'] : 'browse') == 'category' )
 				{
-					$params = is_object($menu->params) ? $menu->params : new JParameter($menu->params);
+					$params = is_object($menu->params) ? $menu->params : new JRegistry($menu->params);
 					if($params->get('catid',0) != $id)
 					{
 						$Itemid = null;
@@ -297,12 +290,16 @@ function arsBuildRouteFeed(&$query)
 						$query['Itemid'] = $menu->id;
 					}
 				}
+				else
+				{
+					$Itemid = null;
+				}
 			}
 
 			if(empty($Itemid))
 			{
 				$options = array('view'=>'category', 'option' => 'com_ars');
-				$params = array('catid'=>$release->category_id);
+				$params = array('catid'=>$id);
 				$menu = ArsRouterHelper::findMenu($options, $params);
 				if(!empty($menu))
 				{
@@ -315,9 +312,8 @@ function arsBuildRouteFeed(&$query)
 					$options = array('view'=>'browse', 'option' => 'com_ars');
 					$menu = ArsRouterHelper::findMenu($options);
 
-					$model = JModel::getInstance('Categories','ArsModel');
-					$model->setId($id);
-					$category = $model->getItem();
+					$model = FOFModel::getTmpInstance('Categories','ArsModel');
+					$category = $model->getItem($id);
 
 					if(!empty($menu))
 					{
@@ -357,19 +353,16 @@ function arsBuildRouteRaw(&$query)
 	$menus = JMenu::getInstance('site');
 	
 	// Get download item info
-	$dlModel = new ArsModelItems();
-	$dlModel->setId($id);
-	$download = $dlModel->getItem();
+	$dlModel = FOFModel::getTmpInstance('Items','ArsModel');
+	$download = $dlModel->getItem($id);
 
 	// Get release info
-	$relModel = new ArsModelReleases();
-	$relModel->setId($download->release_id);
-	$release = $relModel->getItem();
+	$relModel = FOFModel::getTmpInstance('Releases','ArsModel');
+	$release = $relModel->getItem($download->release_id);
 
 	// Get category alias
-	$catModel = new ArsModelCategories();
-	$catModel->setId($release->category_id);
-	$catalias = $catModel->getItem()->alias;
+	$catModel = FOFModel::getTmpInstance('Categories','ArsModel');
+	$catalias = $catModel->getItem($release->category_id)->alias;
 
 	if($Itemid)
 	{
@@ -506,13 +499,13 @@ function arsBuildRouteXml(&$query)
 			if(empty($id)) switch($task)
 			{
 				case 'category':
-					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JParameter($menuitem->params);
+					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JRegistry($menuitem->params);
 					$id = $params->get('category','components');
 					break;
 				
 				case 'ini':
 				case 'stream':
-					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JParameter($menuitem->params);
+					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JRegistry($menuitem->params);
 					$id = $params->get('streamid',0);
 					break;
 			}
@@ -581,9 +574,13 @@ function arsBuildRouteXml(&$query)
 
 		case 'stream':
 			$db = JFactory::getDBO();
-			$sql = 'SELECT `type`,`alias` FROM `#__ars_updatestreams` WHERE `id` = '.
-				$db->Quote($local_id).' LIMIT 0,1';
-			$db->setQuery($sql);
+			$dbquery = $db->getQuery(true)
+				->select(array(
+					$db->qn('type'),
+					$db->qn('alias'),
+				))->from($db->qn('#__ars_updatestreams'))
+				->where($db->qn('id').' = '.$db->q($local_id));
+			$db->setQuery($dbquery, 0, 1);
 			$stream = $db->loadObject();
 
 			if(empty($stream)) die();
@@ -686,13 +683,13 @@ function arsBuildRouteIni(&$query)
 			if(empty($id)) switch($task)
 			{
 				case 'category':
-					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JParameter($menuitem->params);
+					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JRegistry($menuitem->params);
 					$id = $params->get('category','components');
 					break;
 				
 				case 'ini':
 				case 'stream':
-					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JParameter($menuitem->params);
+					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JRegistry($menuitem->params);
 					$id = $params->get('streamid',0);
 					break;
 			}
@@ -700,9 +697,13 @@ function arsBuildRouteIni(&$query)
 	}
 	
 	$db = JFactory::getDBO();
-	$sql = 'SELECT `type`,`alias` FROM `#__ars_updatestreams` WHERE `id` = '.
-		$db->Quote($local_id).' LIMIT 0,1';
-	$db->setQuery($sql);
+	$dbquery = $db->getQuery(true)
+		->select(array(
+			$db->qn('type'),
+			$db->qn('alias'),
+		))->from($db->qn('#__ars_updatestreams'))
+		->where($db->qn('id').' = '.$db->q($local_id));
+	$db->setQuery($dbquery, 0, 1);
 	$stream = $db->loadObject();
 
 	if(empty($stream)) die();
@@ -789,9 +790,12 @@ function arsParseRouteFeed(&$segments)
 		$query['layout'] = 'default';
 
 		$db = JFactory::getDBO();
-		$sql = 'SELECT * FROM `#__ars_categories` WHERE `alias`='.
-			$db->Quote($alias).' AND `published`=1';
-		$db->setQuery($sql);
+		$dbquery = $db->getQuery(true)
+			->select('*')
+			->from($db->qn('#__ars_categories'))
+			->where($db->qn('alias').' = '.$db->q($alias))
+			->where($db->qn('published').' = '.$db->q('1'));
+		$db->setQuery($dbquery);
 		$records = $db->loadObjectList();
 
 		if(!empty($records)) {
@@ -829,9 +833,11 @@ function arsParseRouteHtml(&$segments)
 
 				// Load the category
 				$db = JFactory::getDBO();
-				$sql = 'SELECT * FROM `#__ars_categories` WHERE `alias` = '.
-					$db->Quote($catalias) . ' LIMIT 0,1';
-				$db->setQuery($sql);
+				$dbquery = $db->getQuery(true)
+					->select('*')
+					->from($db->qn('#__ars_categories'))
+					->where($db->qn('alias').' = '.$db->q($catalias));
+				$db->setQuery($dbquery, 0, 1);
 				$cat = $db->loadObject();
 
 				if(empty($cat))
@@ -856,22 +862,25 @@ function arsParseRouteHtml(&$segments)
 				// Load the release
 				$db = JFactory::getDBO();
 
-				$sql = <<<ENDSQL
-SELECT
-    `r`.*, `c`.`title` as `cat_title`, `c`.`alias` as `cat_alias`,
-    `c`.`type` as `cat_type`, `c`.`groups` as `cat_groups`,
-    `c`.`directory` as `cat_directory`, `c`.`access` as `cat_access`,
-    `c`.`published` as `cat_published`
-FROM
-    `#__ars_releases` AS `r`
-    INNER JOIN `#__ars_categories` AS `c` ON(`c`.`id` = `r`.`category_id`)
-WHERE
-
-ENDSQL;
-				$sql .= '`r`.`alias` = '.$db->Quote($relalias).
-					' AND `c`.`alias` = '.$db->Quote($catalias).
-					' LIMIT 0,1';
-				$db->setQuery($sql);
+				$dbquery = $db->getQuery(true)
+					->select(array(
+						$db->qn('r').'.*',
+						$db->qn('c').'.'.$db->qn('title').' AS '.$db->qn('cat_title'),
+						$db->qn('c').'.'.$db->qn('alias').' AS '.$db->qn('cat_alias'),
+						$db->qn('c').'.'.$db->qn('type').' AS '.$db->qn('cat_type'),
+						$db->qn('c').'.'.$db->qn('groups').' AS '.$db->qn('cat_groups'),
+						$db->qn('c').'.'.$db->qn('directory').' AS '.$db->qn('cat_directory'),
+						$db->qn('c').'.'.$db->qn('access').' AS '.$db->qn('cat_access'),
+						$db->qn('c').'.'.$db->qn('published').' AS '.$db->qn('cat_published'),
+					))
+					->from($db->qn('#__ars_releases').' AS '.$db->qn('r'))
+					->innerJoin($db->qn('#__ars_categories').' AS '.$db->qn('c').' ON('.
+						$db->qn('c').'.'.$db->qn('id').'='.$db->qn('r').'.'.$db->qn('category_id').')')
+					->where($db->qn('r').'.'.$db->qn('alias').' = '.$db->q($relalias))
+					->where($db->qn('c').'.'.$db->qn('alias').' = '.$db->q($catalias))
+				;
+				
+				$db->setQuery($dbquery, 0, 1);
 				$rel = $db->loadObject();
 
 				if(empty($rel))
@@ -898,8 +907,8 @@ ENDSQL;
 		$view = $menu->query['view'];
 		$catalias = null;
 		$relalias = null;
-
-		if( empty($view) || ($view == 'browse') )
+		
+		if( empty($view) || ($view == 'browse') || ($view == 'browses') )
 		{
 			switch(count($segments))
 			{
@@ -922,6 +931,22 @@ ENDSQL;
 					break;
 			}
 		}
+		elseif( empty($view) || ($view == 'category') )
+		{
+			switch(count($segments))
+			{
+				case 1:
+					// Release view
+					$query['view'] = 'release';
+					$relalias = array_pop($segments);
+					break;
+
+				case 2:
+					// Degenerate case :(
+					return arsParseRouteRaw($segments);
+					break;
+			}
+		}
 		else
 		{
 			// Degenerate case :(
@@ -934,22 +959,25 @@ ENDSQL;
 		$db = JFactory::getDBO();
 		if( $relalias && $catalias )
 		{
-				$sql = <<<ENDSQL
-SELECT
-    `r`.*, `c`.`title` as `cat_title`, `c`.`alias` as `cat_alias`,
-    `c`.`type` as `cat_type`, `c`.`groups` as `cat_groups`,
-    `c`.`directory` as `cat_directory`, `c`.`access` as `cat_access`,
-    `c`.`published` as `cat_published`
-FROM
-    `#__ars_releases` AS `r`
-    INNER JOIN `#__ars_categories` AS `c` ON(`c`.`id` = `r`.`category_id`)
-WHERE
-
-ENDSQL;
-			$sql .= '`r`.`alias` = '.$db->Quote($relalias).
-				' AND `c`.`alias` = '.$db->Quote($catalias).
-				' LIMIT 0,1';
-			$db->setQuery($sql);
+			$dbquery = $db->getQuery(true)
+					->select(array(
+						$db->qn('r').'.*',
+						$db->qn('c').'.'.$db->qn('title').' AS '.$db->qn('cat_title'),
+						$db->qn('c').'.'.$db->qn('alias').' AS '.$db->qn('cat_alias'),
+						$db->qn('c').'.'.$db->qn('type').' AS '.$db->qn('cat_type'),
+						$db->qn('c').'.'.$db->qn('groups').' AS '.$db->qn('cat_groups'),
+						$db->qn('c').'.'.$db->qn('directory').' AS '.$db->qn('cat_directory'),
+						$db->qn('c').'.'.$db->qn('access').' AS '.$db->qn('cat_access'),
+						$db->qn('c').'.'.$db->qn('published').' AS '.$db->qn('cat_published'),
+					))
+					->from($db->qn('#__ars_releases').' AS '.$db->qn('r'))
+					->innerJoin($db->qn('#__ars_categories').' AS '.$db->qn('c').' ON('.
+						$db->qn('c').'.'.$db->qn('id').'='.$db->qn('r').'.'.$db->qn('category_id').')')
+					->where($db->qn('r').'.'.$db->qn('alias').' = '.$db->q($relalias))
+					->where($db->qn('c').'.'.$db->qn('alias').' = '.$db->q($catalias))
+				;
+			
+			$db->setQuery($dbquery, 0, 1);
 			$rel = $db->loadObject();
 
 			if(empty($rel))
@@ -965,9 +993,13 @@ ENDSQL;
 		elseif( $catalias && is_null($relalias) )
 		{
 			$db = JFactory::getDBO();
-			$sql = 'SELECT * FROM `#__ars_categories` WHERE `alias` = '.
-				$db->Quote($catalias) . ' LIMIT 0,1';
-			$db->setQuery($sql);
+			
+			$dbquery = $db->getQuery(true)
+				->select('*')
+				->from($db->qn('#__ars_categories'))
+				->where($db->qn('alias').' = '.$db->q($catalias));
+			
+			$db->setQuery($dbquery, 0, 1);
 			$cat = $db->loadObject();
 
 			if(empty($cat))
@@ -982,24 +1014,28 @@ ENDSQL;
 		}
 		else
 		{
-			$params = is_object($menu->params) ? $menu->params : new JParameter($menu->params);
+			$params = is_object($menu->params) ? $menu->params : new JRegistry($menu->params);
 			$catid = $params->get('catid',0);
-				$sql = <<<ENDSQL
-SELECT
-    `r`.*, `c`.`title` as `cat_title`, `c`.`alias` as `cat_alias`,
-    `c`.`type` as `cat_type`, `c`.`groups` as `cat_groups`,
-    `c`.`directory` as `cat_directory`, `c`.`access` as `cat_access`,
-    `c`.`published` as `cat_published`
-FROM
-    `#__ars_releases` AS `r`
-    INNER JOIN `#__ars_categories` AS `c` ON(`c`.`id` = `r`.`category_id`)
-WHERE
-
-ENDSQL;
-			$sql .= '`r`.`alias` = '.$db->Quote($relalias).
-				' AND `c`.`id` = '.$db->Quote($catid).
-				' LIMIT 0,1';
-			$db->setQuery($sql);
+			
+			$dbquery = $db->getQuery(true)
+				->select(array(
+					$db->qn('r').'.*',
+					$db->qn('c').'.'.$db->qn('title').' AS '.$db->qn('cat_title'),
+					$db->qn('c').'.'.$db->qn('alias').' AS '.$db->qn('cat_alias'),
+					$db->qn('c').'.'.$db->qn('type').' AS '.$db->qn('cat_type'),
+					$db->qn('c').'.'.$db->qn('groups').' AS '.$db->qn('cat_groups'),
+					$db->qn('c').'.'.$db->qn('directory').' AS '.$db->qn('cat_directory'),
+					$db->qn('c').'.'.$db->qn('access').' AS '.$db->qn('cat_access'),
+					$db->qn('c').'.'.$db->qn('published').' AS '.$db->qn('cat_published'),
+				))
+				->from($db->qn('#__ars_releases').' AS '.$db->qn('r'))
+				->innerJoin($db->qn('#__ars_categories').' AS '.$db->qn('c').' ON('.
+					$db->qn('c').'.'.$db->qn('id').'='.$db->qn('r').'.'.$db->qn('category_id').')')
+				->where($db->qn('r').'.'.$db->qn('alias').' = '.$db->q($relalias))
+				->where($db->qn('c').'.'.$db->qn('id').' = '.$db->q($catid))
+			;
+				
+			$db->setQuery($dbquery, 0, 1);
 			$rel = $db->loadObject();
 
 			if(empty($rel))
@@ -1036,27 +1072,36 @@ function arsParseRouteRaw(&$segments)
 
 		// Load the release
 		$db = JFactory::getDBO();
-		$sql = <<<ENDSQL
-SELECT
-    `i`.*,
-    `r`.`category_id`, `r`.`version`, `r`.`maturity`, `r`.`alias` as `rel_alias`,
-    `r`.`groups` as `rel_groups`, `r`.`access` as `rel_access`,
-    `r`.`published` as `rel_published`,
-    `c`.`title` as `cat_title`, `c`.`alias` as `cat_alias`,
-    `c`.`type` as `cat_type`, `c`.`groups` as `cat_groups`,
-    `c`.`directory` as `cat_directory`, `c`.`access` as `cat_access`,
-    `c`.`published` as `cat_published`
-
-FROM
-    `#__ars_items` as `i`
-    INNER JOIN `#__ars_releases` AS `r` ON(`r`.`id` = `i`.`release_id`)
-    INNER JOIN `#__ars_categories` AS `c` ON(`c`.`id` = `r`.`category_id`)
-ENDSQL;
-		$sql .= ' WHERE `i`.`alias` = '.
-			$db->Quote($itemalias).' AND `r`.`alias` ='.
-			$db->Quote($relalias).' AND `c`.`alias` = '.
-			$db->Quote($catalias).' LIMIT 0,1';
-		$db->setQuery($sql);
+		
+		$dbquery = $db->getQuery(true)
+			->select(array(
+				$db->qn('i').'.*',
+				$db->qn('r').'.'.$db->qn('category_id'),
+				$db->qn('r').'.'.$db->qn('version'),
+				$db->qn('r').'.'.$db->qn('maturity'),
+				$db->qn('r').'.'.$db->qn('alias').' AS '.$db->qn('rel_alias'),
+				$db->qn('r').'.'.$db->qn('groups').' AS '.$db->qn('rel_groups'),
+				$db->qn('r').'.'.$db->qn('access').' AS '.$db->qn('rel_access'),
+				$db->qn('r').'.'.$db->qn('published').' AS '.$db->qn('rel_published'),
+				$db->qn('c').'.'.$db->qn('title').' AS '.$db->qn('cat_title'),
+				$db->qn('c').'.'.$db->qn('alias').' AS '.$db->qn('cat_alias'),
+				$db->qn('c').'.'.$db->qn('type').' AS '.$db->qn('cat_type'),
+				$db->qn('c').'.'.$db->qn('groups').' AS '.$db->qn('cat_groups'),
+				$db->qn('c').'.'.$db->qn('directory').' AS '.$db->qn('cat_directory'),
+				$db->qn('c').'.'.$db->qn('access').' AS '.$db->qn('cat_access'),
+				$db->qn('c').'.'.$db->qn('published').' AS '.$db->qn('cat_published'),
+			))
+			->from($db->qn('#__ars_items').' AS '.$db->qn('i'))
+			->innerJoin($db->qn('#__ars_releases').' AS '.$db->qn('r').' ON('.
+				$db->qn('r').'.'.$db->qn('id').'='.$db->qn('i').'.'.$db->qn('release_id').')')
+			->innerJoin($db->qn('#__ars_categories').' AS '.$db->qn('c').' ON('.
+				$db->qn('c').'.'.$db->qn('id').'='.$db->qn('r').'.'.$db->qn('category_id').')')
+			->where($db->qn('i').'.'.$db->qn('alias').' = '.$db->q($itemalias))
+			->where($db->qn('r').'.'.$db->qn('alias').' = '.$db->q($relalias))
+			->where($db->qn('c').'.'.$db->qn('alias').' = '.$db->q($catalias))
+		;
+		
+		$db->setQuery($dbquery, 0, 1);
 		$item = $db->loadObject();
 
 		if(empty($item))
@@ -1075,7 +1120,7 @@ ENDSQL;
 	{
 		// A menu item is defined
 		$view = $menu->query['view'];
-		$params = is_object($menu->params) ? $menu->params : new JParameter($menu->params);
+		$params = is_object($menu->params) ? $menu->params : new JRegistry($menu->params);
 		$itemalias = null;
 		$catalias = null;
 		$catid = null;
@@ -1101,38 +1146,47 @@ ENDSQL;
 		}
 
 		$db = JFactory::getDBO();
-		$sql = <<<ENDSQL
-SELECT
-    `i`.*,
-    `r`.`category_id`, `r`.`version`, `r`.`maturity`, `r`.`alias` as `rel_alias`,
-    `r`.`groups` as `rel_groups`, `r`.`access` as `rel_access`,
-    `r`.`published` as `rel_published`,
-    `c`.`title` as `cat_title`, `c`.`alias` as `cat_alias`,
-    `c`.`type` as `cat_type`, `c`.`groups` as `cat_groups`,
-    `c`.`directory` as `cat_directory`, `c`.`access` as `cat_access`,
-    `c`.`published` as `cat_published`
+		
+		$dbquery = $db->getQuery(true)
+			->select(array(
+				$db->qn('i').'.*',
+				$db->qn('r').'.'.$db->qn('category_id'),
+				$db->qn('r').'.'.$db->qn('version'),
+				$db->qn('r').'.'.$db->qn('maturity'),
+				$db->qn('r').'.'.$db->qn('alias').' AS '.$db->qn('rel_alias'),
+				$db->qn('r').'.'.$db->qn('groups').' AS '.$db->qn('rel_groups'),
+				$db->qn('r').'.'.$db->qn('access').' AS '.$db->qn('rel_access'),
+				$db->qn('r').'.'.$db->qn('published').' AS '.$db->qn('rel_published'),
+				$db->qn('c').'.'.$db->qn('title').' AS '.$db->qn('cat_title'),
+				$db->qn('c').'.'.$db->qn('alias').' AS '.$db->qn('cat_alias'),
+				$db->qn('c').'.'.$db->qn('type').' AS '.$db->qn('cat_type'),
+				$db->qn('c').'.'.$db->qn('groups').' AS '.$db->qn('cat_groups'),
+				$db->qn('c').'.'.$db->qn('directory').' AS '.$db->qn('cat_directory'),
+				$db->qn('c').'.'.$db->qn('access').' AS '.$db->qn('cat_access'),
+				$db->qn('c').'.'.$db->qn('published').' AS '.$db->qn('cat_published'),
+			))
+			->from($db->qn('#__ars_items').' AS '.$db->qn('i'))
+			->innerJoin($db->qn('#__ars_releases').' AS '.$db->qn('r').' ON('.
+				$db->qn('r').'.'.$db->qn('id').'='.$db->qn('i').'.'.$db->qn('release_id').')')
+			->innerJoin($db->qn('#__ars_categories').' AS '.$db->qn('c').' ON('.
+				$db->qn('c').'.'.$db->qn('id').'='.$db->qn('r').'.'.$db->qn('category_id').')')
+			->where($db->qn('i').'.'.$db->qn('alias').' = '.$db->q($itemalias))
+		;
 
-FROM
-    `#__ars_items` as `i`
-    INNER JOIN `#__ars_releases` AS `r` ON(`r`.`id` = `i`.`release_id`)
-    INNER JOIN `#__ars_categories` AS `c` ON(`c`.`id` = `r`.`category_id`)
-ENDSQL;
-
-		$sql .= ' WHERE `i`.`alias` = '.$db->Quote($itemalias);
 		if(!empty($relalias)) {
-			$sql .= ' AND `r`.`alias` = '.$db->Quote($relalias);
+			$dbquery->where($db->qn('r').'.'.$db->qn('alias').' = '.$db->q($relalias));
 		}
 		if(!empty($relid)) {
-			$sql .= ' AND `r`.`id` = '.$db->Quote($relid);
+			$dbquery->where($db->qn('r').'.'.$db->qn('id').' = '.$db->q($relid));
 		}
 		if(!empty($catalias)) {
-			$sql .= ' AND `c`.`alias` = '.$db->Quote($catalias);
+			$dbquery->where($db->qn('c').'.'.$db->qn('alias').' = '.$db->q($catalias));
 		}
 		if(!empty($catid)) {
-			$sql .= ' AND `c`.`id` = '.$db->Quote($catid);
+			$dbquery->where($db->qn('c').'.'.$db->qn('id').' = '.$db->q($catid));
 		}
-		$sql .= ' LIMIT 0,1';
-		$db->setQuery($sql);
+
+		$db->setQuery($dbquery, 0, 1);
 		$item = $db->loadObject();
 
 		if(empty($item))
@@ -1190,13 +1244,13 @@ function arsParseRouteXml(&$segments)
 			if(empty($id)) switch($task)
 			{
 				case 'category':
-					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JParameter($menuitem->params);
+					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JRegistry($menuitem->params);
 					$id = $params->get('category','components');
 					break;
 				
 				case 'ini':
 				case 'stream':
-					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JParameter($menuitem->params);
+					$params = ($menuitem->params instanceof JRegistry) ? $menuitem->params : new JRegistry($menuitem->params);
 					$id = $params->get('streamid',0);
 					break;
 			}
@@ -1243,10 +1297,12 @@ function arsParseRouteXml(&$segments)
 	{
 		$query['task'] = 'stream';
 		$db = JFactory::getDBO();
-		$sql = 'SELECT * FROM `#__ars_updatestreams` WHERE `alias` = '
-			.$db->Quote($stream).' AND `type` = '.$db->Quote($cat).
-			' LIMIT 0,1';
-		$db->setQuery($sql);
+		$dbquery = $db->getQuery(true)
+			->select('*')
+			->from($db->qn('#__ars_updatestreams'))
+			->where($db->qn('alias').' = '.$db->q($stream))
+			->where($db->qn('type').' = '.$db->q('$cat'));
+		$db->setQuery($dbquery, 0, 1);
 		$item = $db->loadObject();
 		if(empty($item)) die();
 		$query['id'] = $item->id;
@@ -1270,10 +1326,12 @@ function arsParseRouteIni(&$segments)
 
 	$query['task'] = 'stream';
 	$db = JFactory::getDBO();
-	$sql = 'SELECT * FROM `#__ars_updatestreams` WHERE `alias` = '
-		.$db->Quote($stream).' AND `type` = '.$db->Quote($cat).
-		' LIMIT 0,1';
-	$db->setQuery($sql);
+	$dbquery = $db->getQuery(true)
+		->select('*')
+		->from($db->qn('#__ars_updatestreams'))
+		->where($db->qn('alias').' = '.$db->q($stream))
+		->where($db->qn('type').' = '.$db->q($cat));
+	$db->setQuery($dbquery, 0, 1);
 	$item = $db->loadObject();
 	if(empty($item)) die();
 	$query['id'] = $item->id;
@@ -1305,12 +1363,6 @@ class ArsRouterHelper
 	 */
 	static public function findMenu($qoptions = array(), $params = null)
 	{
-		static $joomla16 = null;
-		
-		if(is_null($joomla16)) {
-			$joomla16 = version_compare(JVERSION,'1.6.0','ge');
-		}
-		
 		// Convert $qoptions to an object
 		if(empty($qoptions) || !is_array($qoptions)) $qoptions = array();
 
@@ -1324,16 +1376,48 @@ class ArsRouterHelper
 			}
 		}
 
+		// Find all potential menu items
+		$possible_items = array();
 		foreach($menus->getMenu() as $item)
 		{
-			if($joomla16) {
-				if(self::checkMenu($item, $qoptions, $params)) return $item;
-			} elseif($item->published)
-			{
-				if(self::checkMenu($item, $qoptions, $params)) return $item;
+			if(self::checkMenu($item, $qoptions, $params)) {
+				$possible_items[] = $item;
 			}
 		}
-
+		
+		// If no potential item exists, return null
+		if(empty($possible_items)) {
+			return null;
+		}
+		
+		// Filter by language, if required
+		$app = JFactory::getApplication();
+		$langCode = '*';
+		if($app->getLanguageFilter()) {
+			$lang_filter_plugin = JPluginHelper::getPlugin('system', 'languagefilter');
+			$lang_filter_params = new JRegistry($lang_filter_plugin->params);
+			if ($lang_filter_params->get('remove_default_prefix')) {
+				// Get default site language
+				$lg = JFactory::getLanguage();
+				$langCode = $lg->getTag();
+			}else{
+				$langCode = JRequest::getCmd('language', '*');
+			}
+		} else {
+			$langCode = JRequest::getCmd('language', '*');
+		}
+		
+		if($langCode == '*') {
+			// No language filtering required, return the first item
+			return array_shift($possible_items);
+		} else {
+			// Filter for exact language or *
+			foreach($possible_items as $item) {
+				if(in_array($item->language, array($langCode, '*'))) {
+					return $item;
+				}
+			}
+		}
 		return null;
 	}
 

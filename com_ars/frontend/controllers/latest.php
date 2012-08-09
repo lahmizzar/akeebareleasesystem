@@ -3,47 +3,41 @@
  * @package AkeebaReleaseSystem
  * @copyright Copyright (c)2010-2012 Nicholas K. Dionysopoulos
  * @license GNU General Public License version 3, or later
- * @version $Id$
  */
 
-defined('_JEXEC') or die('Restricted Access');
+defined('_JEXEC') or die();
 
-require_once(dirname(__FILE__).'/default.php');
-
-class ArsControllerLatest extends ArsControllerDefault
+class ArsControllerLatest extends FOFController
 {
-	function  __construct($config = array()) {
+	public function __construct($config = array()) {
+		$config['modelName'] = 'ArsModelBrowses';
 		parent::__construct($config);
-		
-		$this->modelName = 'browse';
-		
-		$this->registerDefaultTask('repository');
-		$this->registerTask( 'display', 'repository' );
 	}
+	
+	public function execute($task) {
+		if(!$this->layout) {
+			$this->layout = 'latest';
+		}
+		$task = 'browse';
+		
+		parent::execute($task);
+	}
+	
+	public function onBeforeBrowse() {
+		$result = parent::onBeforeBrowse();
+		
+		if($result) {
+			$app = JFactory::getApplication();
+			$params = $app->getPageParameters('com_ars');
+			
+			// Push the page params to the model
+			$model = $this->getThisModel()
+				->grouping($params->get('grouping',	'normal'))
+				->orderby($params->get('orderby',	'order'))
+				->limitstart(0)
+				->limit(0);
+		}
 
-	function repository()
-	{
-		// Get the page parameters
-		$app = JFactory::getApplication();
-		$params = $app->getPageParameters('com_ars');
-
-		// Push the page params to the model
-		$model = $this->getThisModel();
-		$model->setState( 'task',		$this->getTask() );
-		$model->setState( 'grouping',	$params->get('grouping',	'normal') );
-		$model->setState( 'orderby',	$params->get('orderby',	'order'));
-		$model->setState( 'maturity',	$params->get('min_maturity',	'alpha') );
-
-		// Push URL parameters to the model
-		$model->setState( 'start',		max(
-											JRequest::getInt('start', 0),
-											JRequest::getInt('limitstart', 0)
-											) );
-
-		// Get the item lists
-		$model->itemList = $model->getCategories();
-		$model->processLatest();
-
-		$this->display(true);
+		return $result;
 	}
 }
