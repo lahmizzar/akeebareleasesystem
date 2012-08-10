@@ -1,3 +1,4 @@
+
 <?php
 /**
  * @package AkeebaReleaseSystem
@@ -78,7 +79,7 @@ $filteringModel = JModel::getInstance('Filtering','ArsModel');
 		<div class="editform-row editform-row-noheight">
 			<label for="groups"><?php echo JText::_('PayPlans Plans'); ?></label>
 			<?php //echo ArsHelperSelect::ambragroups($this->item->groups, 'groups') ?>
-			<?php echo PayplansHtml::_('plans.edit', 'groups', $this->item->groups);?>
+			<?php echo PayplansHtml::_('plans.edit', 'groups', $this->item->groups, array('multiple'=>true));?>
 		</div>
 		<?php endif; ?>
 		
